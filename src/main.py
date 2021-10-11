@@ -10,8 +10,8 @@ from pfrl.wrappers import atari_wrappers
 
 from model import atari_policy_value_function_model
 
-
 # TODO: consider splitting this up further
+
 
 class RewardModelWrapper(gym.RewardWrapper):
     def __init__(self, env, sample_prop):
@@ -26,6 +26,11 @@ def make_parser():
     import argparse
 
     parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--exp-id",
+        type=str,
+        default=None,
+        help="experiment id used from results directory (should be unique)")
     parser.add_argument("--env",
                         type=str,
                         default="BreakoutNoFrameskip-v4",
@@ -175,7 +180,9 @@ def main():
     process_seeds = np.arange(args.num_envs) + args.seed * args.num_envs
     assert process_seeds.max() < 2**31
 
-    args.outdir = experiments.prepare_output_dir(args, args.outdir)
+    args.outdir = experiments.prepare_output_dir(args,
+                                                 args.outdir,
+                                                 exp_id=args.exp_id)
     print("Output files are saved in {}".format(args.outdir))
 
     def make_env(idx, test):
