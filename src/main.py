@@ -10,6 +10,7 @@ from pfrl.wrappers import atari_wrappers
 
 from model import atari_policy_value_function_model
 from arg_parser import make_parser
+from utils import PrintAndLogStdoutStderr
 
 # TODO: consider splitting this up further
 
@@ -85,10 +86,6 @@ class PPOExtraStats(PPO):
 def main():
     args = make_parser().parse_args()
 
-    import logging
-
-    logging.basicConfig(level=args.log_level)
-
     # Set a random seed used in PFRL.
     utils.set_random_seed(args.seed)
 
@@ -101,6 +98,11 @@ def main():
     args.outdir = experiments.prepare_output_dir(args,
                                                  args.outdir,
                                                  exp_id=args.exp_id)
+    output_logger = PrintAndLogStdoutStderr(args.outdir)
+
+    import logging
+    logging.basicConfig(level=args.log_level)
+
     print("Output files are saved in {}".format(args.outdir))
 
     def make_env(idx, test):
@@ -214,6 +216,7 @@ def main():
             use_tensorboard=True,
         )
 
+    del output_logger
 
 if __name__ == "__main__":
     main()
