@@ -149,6 +149,7 @@ def main():
             log_interval=args.log_interval,
             save_best_so_far_agent=False,
             step_hooks=step_hooks,
+            use_tensorboard=True,
         )
 
 
