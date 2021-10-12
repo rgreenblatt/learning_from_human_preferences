@@ -40,7 +40,7 @@ class PPOExtraStats(PPO):
                  clip_eps=0.2,
                  clip_eps_vf=None,
                  standardize_advantages=True,
-                 batch_states=...,
+                 batch_states=pfrl.utils.batch_states,
                  recurrent=False,
                  max_recurrent_sequence_len=None,
                  act_deterministically=False,
