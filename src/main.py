@@ -2,26 +2,17 @@ import functools
 
 import numpy as np
 import torch
-import gym
 import pfrl
 from pfrl import experiments, utils
 from pfrl.wrappers import atari_wrappers
 
 from model import atari_policy_value_function_model
+from reward_model import RewardModelWrapper
 from arg_parser import make_parser
 from utils import PrintAndLogStdoutStderr
 from agent import Agent
 
 # TODO: consider splitting this up further
-
-
-class RewardModelWrapper(gym.RewardWrapper):
-    def __init__(self, env, sample_prop):
-        gym.RewardWrapper.__init__(self, env)
-
-    def reward(self, reward):
-        # TODO
-        raise NotImplementedError
 
 
 def main():
@@ -36,9 +27,9 @@ def main():
     process_seeds = np.arange(args.num_envs) + args.seed * args.num_envs
     assert process_seeds.max() < 2**31
 
-    args.outdir = experiments.prepare_output_dir(args,
-                                                 args.outdir,
-                                                 exp_id=args.exp_id)
+    args.outdir = experiments.prepare_output_dir(
+        args, args.outdir, exp_id=args.exp_id
+    )
     output_logger = PrintAndLogStdoutStderr(args.outdir)
 
     import logging
@@ -62,16 +53,19 @@ def main():
         env.seed(env_seed)
         if args.monitor:
             env = pfrl.wrappers.Monitor(
-                env, args.outdir, mode="evaluation" if test else "training")
+                env, args.outdir, mode="evaluation" if test else "training"
+            )
         if args.render:
             env = pfrl.wrappers.Render(env)
         return env
 
     def make_batch_env(test):
-        vec_env = pfrl.envs.MultiprocessVectorEnv([
-            functools.partial(make_env, idx, test)
-            for idx in range(args.num_envs)
-        ])
+        vec_env = pfrl.envs.MultiprocessVectorEnv(
+            [
+                functools.partial(make_env, idx, test)
+                for idx in range(args.num_envs)
+            ]
+        )
         if not args.no_frame_stack:
             vec_env = pfrl.wrappers.VectorFrameStack(vec_env, 4)
         return vec_env
@@ -120,12 +114,14 @@ def main():
             n_steps=None,
             n_episodes=args.eval_n_runs,
         )
-        print("n_runs: {} mean: {} median: {} stdev: {}".format(
-            args.eval_n_runs,
-            eval_stats["mean"],
-            eval_stats["median"],
-            eval_stats["stdev"],
-        ))
+        print(
+            "n_runs: {} mean: {} median: {} stdev: {}".format(
+                args.eval_n_runs,
+                eval_stats["mean"],
+                eval_stats["median"],
+                eval_stats["stdev"],
+            )
+        )
     else:
         step_hooks = []
 
@@ -139,8 +135,10 @@ def main():
                 param_group["lr"] = value
 
         step_hooks.append(
-            experiments.LinearInterpolationHook(args.steps, args.lr, 0,
-                                                lr_setter))
+            experiments.LinearInterpolationHook(
+                args.steps, args.lr, 0, lr_setter
+            )
+        )
 
         def update_time_hook(_, agent, t):
             agent.t = t
