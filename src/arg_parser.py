@@ -1,5 +1,7 @@
 import argparse
 
+from utils import float2int
+
 
 def make_parser():
     parser = argparse.ArgumentParser()
@@ -56,7 +58,7 @@ def make_parser():
     )
     parser.add_argument(
         "--eval-interval",
-        type=int,
+        type=float2int,
         default=100000,
         help="Interval (in timesteps) between evaluation phases.",
     )
@@ -104,13 +106,13 @@ def make_parser():
     )
     parser.add_argument(
         "--update-interval",
-        type=int,
+        type=float2int,
         default=128 * 8,
         help="Interval (in timesteps) between PPO iterations.",
     )
     parser.add_argument(
         "--batchsize",
-        type=int,
+        type=float2int,
         default=32 * 8,
         help="Size of minibatch (in timesteps).",
     )
@@ -122,13 +124,13 @@ def make_parser():
     )
     parser.add_argument(
         "--epochs",
-        type=int,
+        type=float2int,
         default=4,
         help="Number of epochs used for each PPO iteration.",
     )
     parser.add_argument(
         "--log-interval",
-        type=int,
+        type=float2int,
         default=10000,
         help="Interval (in timesteps) of printing logs.",
     )
@@ -142,7 +144,7 @@ def make_parser():
     )
     parser.add_argument(
         "--checkpoint-frequency",
-        type=int,
+        type=float2int,
         default=None,
         help="Frequency at which agents are stored.",
     )
