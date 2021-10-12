@@ -1,4 +1,5 @@
-from typing import Any, Callable, List, Tuple
+from typing import Any, List, Tuple
+import random
 
 import numpy as np
 import torch
@@ -72,6 +73,7 @@ class Agent(PPO):
 
         torch.save(torch.get_rng_state(), f'{dirname}/torch_rng_state.pt')
         torch.save(np.random.get_state(), f'{dirname}/numpy_rng_state.pt')
+        torch.save(random.getstate(), f'{dirname}/python_rng_state.pt')
 
         torch.save(self.t, f'{dirname}/time_step.pt')
         torch.save(self.n_updates, f'{dirname}/n_updates.pt')
@@ -82,6 +84,7 @@ class Agent(PPO):
 
         torch.set_rng_state(torch.load(f'{dirname}/torch_rng_state.pt'))
         np.random.set_state(torch.load(f'{dirname}/numpy_rng_state.pt'))
+        random.setstate(torch.load(f'{dirname}/python_rng_state.pt'))
 
         self.t = torch.load(f'{dirname}/time_step.pt')
         self.n_updates = torch.load(f'{dirname}/n_updates.pt')
