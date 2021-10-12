@@ -77,7 +77,12 @@ def main():
 
     model = atari_policy_value_function_model(obs_n_channels, n_actions)
 
-    opt = torch.optim.Adam(model.parameters(), lr=args.lr, eps=1e-5)
+    opt = torch.optim.Adam(
+        model.parameters(),
+        lr=args.lr,
+        eps=1e-5,
+        weight_decay=args.weight_decay
+    )
 
     # TODO: add reward model and reward model optimizer (also use adam, use
     # different lr, add use some weight decay)
