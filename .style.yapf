@@ -1,0 +1,9 @@
+[style]
+based_on_style = google
+column_limit = 80
+split_all_top_level_comma_separated_values = true
+split_complex_comprehension = true
+blank_line_before_nested_class_or_def = false
+indent_width = 4
+dedent_closing_brackets = true
+allow_multiline_lambdas = true
