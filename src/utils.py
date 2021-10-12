@@ -35,10 +35,12 @@ class PrintAndLogStdoutStderr():
 
         sys.stdout = WriteBroadcaster(
             [self._combined_file, self._stdout_file, sys.stdout],
-            always_flush=always_flush)
+            always_flush=always_flush
+        )
         sys.stderr = WriteBroadcaster(
             [self._combined_file, self._stderr_file, sys.stderr],
-            always_flush=always_flush)
+            always_flush=always_flush
+        )
 
     def __del__(self):
         sys.stderr = self._orig_stderr

@@ -12,8 +12,6 @@ from arg_parser import make_parser
 from utils import PrintAndLogStdoutStderr
 from agent import Agent
 
-# TODO: consider splitting this up further
-
 
 def main():
     args = make_parser().parse_args()

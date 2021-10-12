@@ -7,46 +7,53 @@ def make_parser():
         "--exp-id",
         type=str,
         default=None,
-        help="experiment id used from results directory (should be unique)")
-    parser.add_argument("--env",
-                        type=str,
-                        default="BreakoutNoFrameskip-v4",
-                        help="Gym Env ID.")
-    parser.add_argument("--gpu",
-                        type=int,
-                        default=0,
-                        help="GPU device ID. Set to -1 to use CPUs only.")
+        help="experiment id used from results directory (should be unique)"
+    )
+    parser.add_argument(
+        "--env", type=str, default="BreakoutNoFrameskip-v4", help="Gym Env ID."
+    )
+    parser.add_argument(
+        "--gpu",
+        type=int,
+        default=0,
+        help="GPU device ID. Set to -1 to use CPUs only."
+    )
     parser.add_argument(
         "--num-envs",
         type=int,
         default=8,
         help="Number of env instances run in parallel.",
     )
-    parser.add_argument("--seed",
-                        type=int,
-                        default=0,
-                        help="Random seed [0, 2 ** 32)")
+    parser.add_argument(
+        "--seed", type=int, default=0, help="Random seed [0, 2 ** 32)"
+    )
     parser.add_argument(
         "--outdir",
         type=str,
         default="results",
-        help=("Directory path to save output files."
-              " If it does not exist, it will be created."),
+        help=(
+            "Directory path to save output files."
+            " If it does not exist, it will be created."
+        ),
     )
-    parser.add_argument("--steps",
-                        type=int,
-                        default=10**7,
-                        help="Total time steps for training.")
+    parser.add_argument(
+        "--steps",
+        type=int,
+        default=10**7,
+        help="Total time steps for training."
+    )
     parser.add_argument(
         "--max-frames",
         type=int,
         default=30 * 60 * 60,  # 30 minutes with 60 fps
         help="Maximum number of frames for each episode.",
     )
-    parser.add_argument("--lr",
-                        type=float,
-                        default=2.5e-4,
-                        help="Learning rate.")
+    parser.add_argument(
+        "--lr", type=float, default=2.5e-4, help="Learning rate."
+    )
+    parser.add_argument(
+        "--weight-decay", type=float, default=0, help="Adam weight decay."
+    )
     parser.add_argument(
         "--eval-interval",
         type=int,
@@ -70,8 +77,10 @@ def make_parser():
         "--load",
         type=str,
         default="",
-        help=("Directory path to load a saved agent data from"
-              " if it is a non-empty string."),
+        help=(
+            "Directory path to load a saved agent data from"
+            " if it is a non-empty string."
+        ),
     )
     parser.add_argument(
         "--log-level",
@@ -89,9 +98,9 @@ def make_parser():
         "--monitor",
         action="store_true",
         default=False,
-        help=
-        ("Monitor env. Videos and additional information are saved as output files."
-         ),
+        help=(
+            "Monitor env. Videos and additional information are saved as output files."
+        ),
     )
     parser.add_argument(
         "--update-interval",
@@ -127,9 +136,9 @@ def make_parser():
         "--no-frame-stack",
         action="store_true",
         default=False,
-        help=
-        ("Disable frame stacking so that the agent can only see the current screen."
-         ),
+        help=(
+            "Disable frame stacking so that the agent can only see the current screen."
+        ),
     )
     parser.add_argument(
         "--checkpoint-frequency",
