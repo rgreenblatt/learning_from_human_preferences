@@ -5,12 +5,12 @@ import torch
 import gym
 import pfrl
 from pfrl import experiments, utils
-from pfrl.agents import PPO
 from pfrl.wrappers import atari_wrappers
 
 from model import atari_policy_value_function_model
 from arg_parser import make_parser
 from utils import PrintAndLogStdoutStderr
+from agent import Agent
 
 # TODO: consider splitting this up further
 
@@ -22,65 +22,6 @@ class RewardModelWrapper(gym.RewardWrapper):
     def reward(self, reward):
         # TODO
         raise NotImplementedError
-
-
-class PPOExtraStats(PPO):
-    def __init__(self,
-                 model,
-                 optimizer,
-                 obs_normalizer=None,
-                 gpu=None,
-                 gamma=0.99,
-                 lambd=0.95,
-                 phi=lambda x: x,
-                 value_func_coef=1,
-                 entropy_coef=0.01,
-                 update_interval=2048,
-                 minibatch_size=64,
-                 epochs=10,
-                 clip_eps=0.2,
-                 clip_eps_vf=None,
-                 standardize_advantages=True,
-                 batch_states=pfrl.utils.batch_states,
-                 recurrent=False,
-                 max_recurrent_sequence_len=None,
-                 act_deterministically=False,
-                 max_grad_norm=None,
-                 value_stats_window=1000,
-                 entropy_stats_window=1000,
-                 value_loss_stats_window=100,
-                 policy_loss_stats_window=100):
-        super().__init__(model,
-                         optimizer,
-                         obs_normalizer=obs_normalizer,
-                         gpu=gpu,
-                         gamma=gamma,
-                         lambd=lambd,
-                         phi=phi,
-                         value_func_coef=value_func_coef,
-                         entropy_coef=entropy_coef,
-                         update_interval=update_interval,
-                         minibatch_size=minibatch_size,
-                         epochs=epochs,
-                         clip_eps=clip_eps,
-                         clip_eps_vf=clip_eps_vf,
-                         standardize_advantages=standardize_advantages,
-                         batch_states=batch_states,
-                         recurrent=recurrent,
-                         max_recurrent_sequence_len=max_recurrent_sequence_len,
-                         act_deterministically=act_deterministically,
-                         max_grad_norm=max_grad_norm,
-                         value_stats_window=value_stats_window,
-                         entropy_stats_window=entropy_stats_window,
-                         value_loss_stats_window=value_loss_stats_window,
-                         policy_loss_stats_window=policy_loss_stats_window)
-        self.extra_stats = {}
-
-    def get_extra_statistics(self):
-        return list(self.extra_stats.items())
-
-    def get_statistics(self):
-        return super().get_statistics() + self.get_extra_statistics()
 
 
 def main():
@@ -153,7 +94,7 @@ def main():
         # Feature extractor
         return np.asarray(x, dtype=np.float32) / 255
 
-    agent = PPOExtraStats(
+    agent = Agent(
         model,
         opt,
         gpu=args.gpu,
@@ -170,6 +111,7 @@ def main():
     )
     if args.load:
         agent.load(args.load)
+        print(f'loaded with timestep {agent.t}')
 
     if args.demo:
         eval_stats = experiments.eval_performance(
@@ -200,6 +142,11 @@ def main():
             experiments.LinearInterpolationHook(args.steps, args.lr, 0,
                                                 lr_setter))
 
+        def update_time_hook(_, agent, t):
+            agent.t = t
+
+        step_hooks.append(update_time_hook)
+
         experiments.train_agent_batch_with_evaluation(
             agent=agent,
             env=make_batch_env(False),
@@ -214,9 +161,11 @@ def main():
             save_best_so_far_agent=False,
             step_hooks=step_hooks,
             use_tensorboard=True,
+            step_offset=agent.t,
         )
 
     del output_logger
+
 
 if __name__ == "__main__":
     main()
