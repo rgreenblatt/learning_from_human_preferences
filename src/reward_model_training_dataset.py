@@ -110,7 +110,6 @@ if __name__ == "__main__":
         print(dataset._probs)
         print(len(dataset))
 
-
     for _ in range(100):
         dataset[0]
 
