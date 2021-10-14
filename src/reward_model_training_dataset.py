@@ -31,7 +31,7 @@ class RewardModelTrainingDataset(Dataset):
         self,
         sample_decay: float = 0.5,
         min_sample_prob: float = 1e-4,
-        epoch_size_multiplier: float = 1.,
+        epoch_size_multiplier: float = 1.5,
     ) -> None:
         super().__init__()
 
