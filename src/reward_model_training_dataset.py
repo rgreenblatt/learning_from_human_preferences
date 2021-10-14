@@ -103,6 +103,13 @@ if __name__ == "__main__":
     dataset = RewardModelTrainingDataset(min_sample_prob=5e-3)
     print(len(dataset))
 
+    dataloader = DataLoader(
+        dataset, batch_size=64, shuffle=False, num_workers=0
+    )
+
+    for batched in dataloader:
+        print(batched[0].size(), batched[1].size())
+
     for _ in range(10):
         dataset.add_trajectories(
             torch.rand(100, 2, 30), torch.full((100,), False)
@@ -112,10 +119,6 @@ if __name__ == "__main__":
 
     for _ in range(100):
         dataset[0]
-
-    dataloader = DataLoader(
-        dataset, batch_size=64, shuffle=False, num_workers=0
-    )
 
     for batched in dataloader:
         print(batched[0].size(), batched[1].size())
