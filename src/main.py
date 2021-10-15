@@ -5,10 +5,11 @@ import torch
 import pfrl
 from pfrl import experiments, utils
 from pfrl.wrappers import atari_wrappers
+from torch.utils.data.dataloader import DataLoader
 
-from model import atari_policy_value_function_model
-from reward_model import RewardModelWrapper
+from model import atari_policy_value_function_model, reward_predictor_model
 from arg_parser import make_parser
+from reward_model_training_dataset import RewardModelTrainingDataset
 from utils import PrintAndLogStdoutStderr
 from agent import Agent
 
@@ -74,9 +75,16 @@ def main():
     del sample_env
 
     model = atari_policy_value_function_model(obs_n_channels, n_actions)
+    reward_model = reward_predictor_model(obs_n_channels)
 
     opt = torch.optim.Adam(
         model.parameters(),
+        lr=args.lr,
+        eps=1e-5,
+        weight_decay=args.weight_decay
+    )
+    reward_opt = torch.optim.Adam(
+        reward_model.parameters(),
         lr=args.lr,
         eps=1e-5,
         weight_decay=args.weight_decay
@@ -89,9 +97,19 @@ def main():
         # Feature extractor
         return np.asarray(x, dtype=np.float32) / 255
 
+    dataset = RewardModelTrainingDataset(min_sample_prob=args.min_sample_prob)
+    reward_dataloader = DataLoader(
+        dataset, batch_size=args.rpn_batchsize, shuffle=False, num_workers=0
+    )
+
     agent = Agent(
         model,
         opt,
+        reward_model=reward_model,
+        reward_opt=reward_opt,
+        reward_update_interval=int(args.update_interval * args.rpn_sample_prop),
+        num_envs=args.num_envs,
+        reward_dataloader=reward_dataloader,
         gpu=args.gpu,
         phi=phi,
         update_interval=args.update_interval,
@@ -144,7 +162,19 @@ def main():
         def update_time_hook(_, agent, t):
             agent.t = t
 
+        def update_reward_prop(_, agent, t):
+            if t % args.reward_proportion_update_freq == 0:
+                agent.reward_proportion = args.reward_proportion_update_freq / (
+                    t + args.reward_proportion_update_freq
+                )
+
+        def run_reward_training(_, agent, t):
+            if t % int(args.rpn_sample_prop * args.update_interval) == 0:
+                agent.reward_training_loop()
+
         step_hooks.append(update_time_hook)
+        step_hooks.append(update_reward_prop)
+        step_hooks.append(run_reward_training)
 
         experiments.train_agent_batch_with_evaluation(
             agent=agent,
