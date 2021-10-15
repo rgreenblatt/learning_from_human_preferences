@@ -83,6 +83,7 @@ class Agent(PPO):
         self.reward_proportion = 1
         self.num_envs = num_envs
         self.reward_model = reward_model
+        self.reward_model.to(self.device)
         self.reward_opt = reward_opt
         self.reward_dataloader = reward_dataloader
         self.reward_update_interval = reward_update_interval
@@ -99,6 +100,8 @@ class Agent(PPO):
         for batch, human_labels in self.reward_dataloader:
 
             # batch: batch_dim x 2 x k x (4x84x84)
+            batch = batch.to(self.device)
+            human_labels = human_labels.to(self.device)
             assert batch.shape[1] == 2
             traj_1, traj_2 = batch[:, 0, ...].squeeze(), batch[:, 1, ...].squeeze()
 
@@ -124,8 +127,6 @@ class Agent(PPO):
 
             self.rpn_loss_record.append(rpn_loss.item())
             self.rpn_prob_record.append(probs.detach().cpu().numpy())
-
-
 
     def _add_to_dataloader_if_dataset_is_ready(self, episodes) -> None:
         dataset_size = (
