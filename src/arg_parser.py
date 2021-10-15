@@ -149,7 +149,7 @@ def make_parser():
     parser.add_argument(
         "--log-interval",
         type=float2int,
-        default=10000,
+        default=1e3,
         help="Interval (in timesteps) of printing logs.",
     )
     parser.add_argument(

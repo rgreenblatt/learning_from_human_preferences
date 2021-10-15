@@ -10,7 +10,7 @@ from torch.utils.data.dataloader import DataLoader
 from model import atari_policy_value_function_model, reward_predictor_model
 from arg_parser import make_parser
 from reward_model_training_dataset import RewardModelTrainingDataset
-from utils import PrintAndLogStdoutStderr
+from utils import PrintAndLogStdoutStderr, get_logger
 from agent import Agent
 
 
@@ -102,12 +102,15 @@ def main():
         dataset, batch_size=args.rpn_batchsize, shuffle=False, num_workers=0
     )
 
+    logger = get_logger(args.log_level, "ppo_with_rpn")
+
     agent = Agent(
         model,
         opt,
         reward_model=reward_model,
         reward_opt=reward_opt,
         reward_update_interval=int(args.update_interval * args.rpn_sample_prop),
+        log=logger,
         num_envs=args.num_envs,
         reward_dataloader=reward_dataloader,
         gpu=args.gpu,
@@ -172,6 +175,7 @@ def main():
             if t > 0 and t % int(
                 args.rpn_sample_prop * args.update_interval
             ) == 0:
+                agent.log.debug("Running reward training")
                 agent.reward_training_loop()
 
         step_hooks.append(update_time_hook)

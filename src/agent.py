@@ -25,6 +25,7 @@ class Agent(PPO):
         reward_opt,
         reward_update_interval,
         num_envs,
+        log,
         trajectory_segment_len=25,
         obs_normalizer=None,
         gpu=None,
@@ -79,6 +80,7 @@ class Agent(PPO):
             raise ValueError("This does not support recurrent nets")
         self.extra_stats = {}
         self.t = 0
+        self.log = log
         self.trajectory_segment_len = trajectory_segment_len
         self.reward_proportion = 1
         self.num_envs = num_envs
@@ -137,6 +139,7 @@ class Agent(PPO):
             )
         )
         if dataset_size >= self.reward_update_interval:
+            self.log.debug("Adding to dataset")
             self._flush_last_episode()
             dataset = list(itertools.chain.from_iterable(episodes))
 
@@ -200,8 +203,8 @@ class Agent(PPO):
 
     def get_extra_statistics(self) -> List[Tuple[str, Any]]:
         self.extra_stats['rpn_loss'] = _mean_or_nan(self.rpn_loss_record)
-        self.extra_stats['rpn_probs'] = np.mean(self.rpn_prob_record, axis=0) if \
-                self.rpn_prob_record else np.nan
+        self.extra_stats['rpn_probs'] = np.concatenate(self.rpn_prob_record, axis=0).mean(axis=0) \
+                if self.rpn_prob_record else np.nan
         return list(self.extra_stats.items())
 
     def get_statistics(self) -> List[Tuple[str, Any]]:
