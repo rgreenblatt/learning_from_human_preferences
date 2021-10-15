@@ -163,13 +163,15 @@ def main():
             agent.t = t
 
         def update_reward_prop(_, agent, t):
-            if t % args.reward_proportion_update_freq == 0:
+            if t > 0 and t % args.reward_proportion_update_freq == 0:
                 agent.reward_proportion = args.reward_proportion_update_freq / (
                     t + args.reward_proportion_update_freq
                 )
 
         def run_reward_training(_, agent, t):
-            if t % int(args.rpn_sample_prop * args.update_interval) == 0:
+            if t > 0 and t % int(
+                args.rpn_sample_prop * args.update_interval
+            ) == 0:
                 agent.reward_training_loop()
 
         step_hooks.append(update_time_hook)

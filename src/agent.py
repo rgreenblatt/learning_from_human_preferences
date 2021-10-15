@@ -1,12 +1,16 @@
+import collections
+from functools import partial
 import itertools
 from typing import Any, List, Tuple
 import random
 
 import numpy as np
+from pfrl.utils.batch_states import batch_states
 import torch
 from torch.nn.functional import nll_loss
 import pfrl
 from pfrl.agents import PPO
+from pfrl.agents.ppo import _mean_or_nan
 
 from reward_model import compare_via_ground_truth, probability_of_preferring_trajectory, sample_trajectory_segments_from_trajectory
 
@@ -84,24 +88,44 @@ class Agent(PPO):
         self.reward_update_interval = reward_update_interval
         assert self.reward_update_interval < self.update_interval, "Currently reward_update_interval should be less than update_interval"
 
+        self.rpn_loss_record = collections.deque(maxlen=100)
+        self.rpn_prob_record = collections.deque(maxlen=100)
+
     def reward_training_loop(self) -> None:
         # uses model.zero_grad for performance reasons:
         # https://tigress-web.princeton.edu/~jdh4/PyTorchPerformanceTuningGuide_GTC2021.pdf
         self.reward_model.zero_grad(set_to_none=True)
+
         for batch, human_labels in self.reward_dataloader:
-            # batch: batch_dim x 2 x k x (84x84x4)
+
+            # batch: batch_dim x 2 x k x (4x84x84)
             assert batch.shape[1] == 2
             traj_1, traj_2 = batch[:, 0, ...].squeeze(), batch[:, 1, ...].squeeze()
-            reward_sum_1 = self.reward_model(traj_1).sum(dim=3)
-            reward_sum_2 = self.reward_model(traj_2).sum(dim=3)
+
+            assert traj_1.shape == traj_2.shape
+            bs, k, state_shp = traj_1.shape[0], traj_1.shape[1], traj_1.shape[2:]
+
+            traj_1 = traj_1.reshape(bs * k, *state_shp)
+            reward_sum_1 = self.reward_model(traj_1).reshape(bs, k,
+                                                             1).sum(dim=1)
+
+            traj_2 = traj_2.reshape(bs * k, *state_shp)
+            reward_sum_2 = self.reward_model(traj_2).reshape(bs, k,
+                                                             1).sum(dim=1)
+
             log_probs, probs = probability_of_preferring_trajectory(
                 reward_sum_1, reward_sum_2
             )
-            reward_loss = nll_loss(log_probs, human_labels, reduction='mean')
-            reward_loss.backward()
+
+            rpn_loss = -(log_probs * human_labels).sum()
+            rpn_loss.backward()
+
             # TODO: add some logging
-            self.extra_stats['rpn_loss'] = reward_loss.item()
-            self.extra_stats['rpn_probs'] = probs
+
+            self.rpn_loss_record.append(rpn_loss.item())
+            self.rpn_prob_record.append(probs.detach().cpu().numpy())
+
+
 
     def _add_to_dataloader_if_dataset_is_ready(self, episodes) -> None:
         dataset_size = (
@@ -112,16 +136,18 @@ class Agent(PPO):
             )
         )
         if dataset_size >= self.reward_update_interval:
-            states = [
-                b['state'] for b in itertools.chain.from_iterable(episodes)
-            ]
+            self._flush_last_episode()
+            dataset = list(itertools.chain.from_iterable(episodes))
+
+            # we want to only store segments onto the cpu
             trajectory_segments, env_rews = sample_trajectory_segments_from_trajectory(
                 self.trajectory_segment_len,
-                int(self.t * self.reward_proportion / self.num_envs),
-                states
+                int(self.t * self.reward_proportion),
+                dataset,
+                lambda x: batch_states(x, torch.device("cpu"), self.phi),
             )
 
-            self.reward_dataloader.add_trajectories(
+            self.reward_dataloader.dataset.add_trajectories(
                 trajectory_segments, compare_via_ground_truth(env_rews)
             )
 
@@ -151,8 +177,9 @@ class Agent(PPO):
                         reward,
                     "reward":
                         self.reward_model(
-                            torch.from_numpy(self.phi(np.array(state))
-                                            ).unsqueeze(0)
+                            torch.from_numpy(
+                                self.phi(np.array(state))
+                            ).unsqueeze(0).to(device=self.device)
                         ).item(),
                     "next_state":
                         next_state,
@@ -171,6 +198,9 @@ class Agent(PPO):
         self._update_if_dataset_is_ready()
 
     def get_extra_statistics(self) -> List[Tuple[str, Any]]:
+        self.extra_stats['rpn_loss'] = _mean_or_nan(self.rpn_loss_record)
+        self.extra_stats['rpn_probs'] = np.mean(self.rpn_prob_record, axis=0) if \
+                self.rpn_prob_record else np.nan
         return list(self.extra_stats.items())
 
     def get_statistics(self) -> List[Tuple[str, Any]]:
