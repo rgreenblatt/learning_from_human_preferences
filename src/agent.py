@@ -205,6 +205,7 @@ class Agent(PPO):
         self.extra_stats['rpn_loss'] = _mean_or_nan(self.rpn_loss_record)
         self.extra_stats['rpn_probs'] = np.concatenate(self.rpn_prob_record, axis=0).mean(axis=0) \
                 if self.rpn_prob_record else np.nan
+        self.extra_stats['num_labels'] = len(self.reward_dataloader.dataset)
         return list(self.extra_stats.items())
 
     def get_statistics(self) -> List[Tuple[str, Any]]:
