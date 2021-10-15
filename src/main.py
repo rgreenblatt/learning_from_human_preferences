@@ -90,9 +90,6 @@ def main():
         weight_decay=args.reward_model_weight_decay
     )
 
-    # TODO: add reward model and reward model optimizer (also use adam, use
-    # different lr, add use some weight decay)
-
     def phi(x):
         # Feature extractor
         return np.asarray(x, dtype=np.float32) / 255
