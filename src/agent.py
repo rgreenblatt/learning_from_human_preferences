@@ -216,7 +216,6 @@ class Agent(PPO):
     def save(self, dirname: str) -> None:
         """Save internal states."""
         super().save(dirname)
-        print(f"saving with t: {self.t}")
 
         torch.save(torch.get_rng_state(), f'{dirname}/torch_rng_state.pt')
         torch.save(np.random.get_state(), f'{dirname}/numpy_rng_state.pt')
