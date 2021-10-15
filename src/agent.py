@@ -79,6 +79,7 @@ class Agent(PPO):
             raise ValueError("This does not support recurrent nets")
         self.extra_stats = {}
         self.t = 0
+        self._last_update_time = 0
         self.log = log
         self.trajectory_segment_len = trajectory_segment_len
         self.reward_proportion = 1
@@ -152,7 +153,7 @@ class Agent(PPO):
             # we want to only store segments onto the cpu
             trajectory_segments, env_rews = sample_trajectory_segments_from_trajectory(
                 self.trajectory_segment_len,
-                int(self.t * self.reward_proportion),
+                int((self.t - self._last_update_time) * self.reward_proportion),
                 dataset,
                 lambda x: batch_states(x, torch.device("cpu"), self.phi),
             )
@@ -160,7 +161,8 @@ class Agent(PPO):
             self.reward_dataloader.dataset.add_trajectories(
                 trajectory_segments, compare_via_ground_truth(env_rews)
             )
-            self.reward_training_loop()
+            self.reward_train_epoch()
+        self._last_update_time = self.t
 
     def _batch_observe_train(
         self, batch_obs, batch_reward, batch_done, batch_reset
