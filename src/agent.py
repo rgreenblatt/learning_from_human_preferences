@@ -217,6 +217,8 @@ class Agent(PPO):
         """Save internal states."""
         super().save(dirname)
 
+        # TODO: save and load labels!
+
         torch.save(torch.get_rng_state(), f'{dirname}/torch_rng_state.pt')
         torch.save(np.random.get_state(), f'{dirname}/numpy_rng_state.pt')
         torch.save(random.getstate(), f'{dirname}/python_rng_state.pt')
