@@ -95,9 +95,6 @@ class Agent(PPO):
         self.rpn_prob_record = collections.deque(maxlen=100)
 
     def reward_training_loop(self) -> None:
-        # uses model.zero_grad for performance reasons:
-        # https://tigress-web.princeton.edu/~jdh4/PyTorchPerformanceTuningGuide_GTC2021.pdf
-        self.reward_model.zero_grad(set_to_none=True)
 
         for batch, human_labels in self.reward_dataloader:
 
@@ -121,6 +118,10 @@ class Agent(PPO):
             log_probs, probs = probability_of_preferring_trajectory(
                 reward_sum_1, reward_sum_2
             )
+
+            # uses model.zero_grad for performance reasons:
+            # https://tigress-web.princeton.edu/~jdh4/PyTorchPerformanceTuningGuide_GTC2021.pdf
+            self.reward_model.zero_grad(set_to_none=True)
 
             rpn_loss = -(log_probs * human_labels).sum()
             rpn_loss.backward()
