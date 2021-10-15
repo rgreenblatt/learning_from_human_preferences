@@ -97,6 +97,9 @@ class Agent(PPO):
     def reward_training_loop(self) -> None:
 
         for batch, human_labels in self.reward_dataloader:
+            # uses model.zero_grad for performance reasons:
+            # https://tigress-web.princeton.edu/~jdh4/PyTorchPerformanceTuningGuide_GTC2021.pdf
+            self.reward_model.zero_grad(set_to_none=True)
 
             # batch: batch_dim x 2 x k x (4x84x84)
             batch = batch.to(self.device)
@@ -119,12 +122,9 @@ class Agent(PPO):
                 reward_sum_1, reward_sum_2
             )
 
-            # uses model.zero_grad for performance reasons:
-            # https://tigress-web.princeton.edu/~jdh4/PyTorchPerformanceTuningGuide_GTC2021.pdf
-            self.reward_model.zero_grad(set_to_none=True)
-
             rpn_loss = -(log_probs * human_labels).sum()
             rpn_loss.backward()
+            self.reward_opt.step()
 
             # TODO: add some logging
 
