@@ -97,8 +97,8 @@ class RewardModelTrainingDataset(Dataset):
             self._probs[-1]
         )
 
-    # NOTE: idx isn't relevant, a bit gross...
-    def __getitem__(self, idx) -> Tuple[torch.Tensor, torch.Tensor]:
+    # NOTE: idx input isn't relevant, a bit gross...
+    def __getitem__(self, _) -> Tuple[torch.Tensor, torch.Tensor]:
         # TODO: consider instead doing this with numpy generator object and
         # accepting seed as arg
         group_idx = np.random.choice(len(self._samples), p=self._probs)
