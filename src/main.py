@@ -68,8 +68,8 @@ def main():
         return vec_env
 
     sample_env = make_batch_env(test=False)
-    print("Observation space", sample_env.observation_space)
-    print("Action space", sample_env.action_space)
+    print("Observation space", sample_env.observation_space.shape)
+    print("Action space", sample_env.action_space.shape)
     n_actions = sample_env.action_space.n
     obs_n_channels = sample_env.observation_space.low.shape[0]
     del sample_env
