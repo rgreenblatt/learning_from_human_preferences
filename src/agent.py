@@ -172,24 +172,25 @@ class Agent(PPO):
         ):
             if state is not None:
                 assert action is not None
-                transition = {
-                    "state":
-                        state,
-                    "action":
-                        action,
-                    "env_reward":
-                        reward,
-                    "reward":
-                        self.reward_model(
-                            torch.from_numpy(
-                                self.phi(np.array(state))
-                            ).unsqueeze(0).to(device=self.device)
-                        ).item(),
-                    "next_state":
-                        next_state,
-                    "nonterminal":
-                        0.0 if done else 1.0,
-                }
+                with torch.no_grad():
+                    transition = {
+                        "state":
+                            state,
+                        "action":
+                            action,
+                        "env_reward":
+                            reward,
+                        "reward":
+                            self.reward_model(
+                                torch.from_numpy(
+                                    self.phi(np.array(state))
+                                ).unsqueeze(0).to(device=self.device)
+                            ).item(),
+                        "next_state":
+                            next_state,
+                        "nonterminal":
+                            0.0 if done else 1.0,
+                    }
                 self.batch_last_episode[i].append(transition)  # type: ignore
             if done or reset:
                 assert self.batch_last_episode[i]  # type: ignore
