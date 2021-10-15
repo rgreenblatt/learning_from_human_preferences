@@ -162,7 +162,7 @@ class Agent(PPO):
                 trajectory_segments, compare_via_ground_truth(env_rews)
             )
             self.reward_train_epoch()
-        self._last_update_time = self.t
+            self._last_update_time = self.t
 
     def _batch_observe_train(
         self, batch_obs, batch_reward, batch_done, batch_reset
