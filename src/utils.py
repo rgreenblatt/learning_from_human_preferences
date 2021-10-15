@@ -1,8 +1,9 @@
 from pathlib import Path
 import sys
 
-import os
 import logging
+from typing import Dict, List
+import torch
 from pprint import pformat
 from functools import partial
 
@@ -113,3 +114,9 @@ class PrintAndLogStdoutStderr():
         self._combined_file.close()
         self._stdout_file.close()
         self._stdout_file.close()
+
+
+def pfrl_trajectory_key_to_tensor(
+    traj: List[Dict[str, torch.Tensor]], key: str
+) -> torch.Tensor:
+    return torch.cat([b[key] for b in traj], dim=0)
