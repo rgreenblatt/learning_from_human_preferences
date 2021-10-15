@@ -32,12 +32,14 @@ class RewardModelTrainingDataset(Dataset):
         sample_decay: float = 0.5,
         min_sample_prob: float = 1e-4,
         epoch_size_multiplier: float = 1.5,
+        human_error_rate: float = 0.1
     ) -> None:
         super().__init__()
 
-        assert 0 < sample_decay < 1
-        assert 0 <= min_sample_prob < 1
-        assert epoch_size_multiplier > 0
+        assert 0. < sample_decay < 1.
+        assert 0. <= min_sample_prob < 1.
+        assert epoch_size_multiplier > 0.
+        assert 0. <= human_error_rate < 0.5
 
         self._sample_decay = sample_decay
         self._min_sample_prob = min_sample_prob
@@ -46,13 +48,20 @@ class RewardModelTrainingDataset(Dataset):
         self._samples: List[Tuple[torch.Tensor, torch.Tensor]] = []
         self._probs: List[float] = []
 
+        self._idx_0_pref = torch.tensor(
+            [1 - human_error_rate, human_error_rate]
+        )
+        self._idx_1_pref = torch.tensor(
+            [human_error_rate, 1 - human_error_rate]
+        )
+
     def add_trajectories(
         self, states: torch.Tensor, preferences: torch.Tensor
     ) -> None:
         """
         Args:
             states (Tensor): [n x 2 x k x (state dim)]
-            preferences (Tensor): [n] bool
+            preferences (Tensor): [n] bool, true if idx 0 is prefered over idx 1
 
         Where n is number of trajectories, k is trajectory length, and the
         state dim is whatever remaining dimensions the state has.
@@ -96,7 +105,14 @@ class RewardModelTrainingDataset(Dataset):
         n = self._samples[group_idx][0].size(0)
         idx = np.random.randint(0, n)
 
-        return self._samples[group_idx][0][idx], self._samples[group_idx][1][idx]
+        x = self._samples[group_idx][0][idx]
+
+        if bool(self._samples[group_idx][1][idx]):
+            label_probs = self._idx_0_pref
+        else:
+            label_probs = self._idx_1_pref
+
+        return x, label_probs
 
 
 if __name__ == "__main__":
