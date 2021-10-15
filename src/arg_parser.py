@@ -63,9 +63,15 @@ def make_parser():
         help="Interval (in timesteps) between evaluation phases.",
     )
     parser.add_argument(
+        "--reward-proportion-update-freq",
+        type=float2int,
+        default=5e6,
+        help="Interval (in timesteps) between evaluation phases.",
+    )
+    parser.add_argument(
         "--eval-n-runs",
         type=int,
-        default=10,
+        default=1,
         help="Number of episodes ran in an evaluation phase.",
     )
     parser.add_argument(
@@ -117,10 +123,22 @@ def make_parser():
         help="Size of minibatch (in timesteps).",
     )
     parser.add_argument(
-        "--reward-model-sample-prop",
+        "--rpn-batchsize",
+        type=float2int,
+        default=32 * 8,
+        help="Size of minibatch (in timesteps).",
+    )
+    parser.add_argument(
+        "--rpn-sample-prop",
         type=float,
-        default=None,
-        help="proportion of time steps used for reward model training",
+        default=0.1,
+        help="proportion of update_interval timesteps used for rpn training",
+    )
+    parser.add_argument(
+        "--min-sample-prob",
+        type=float,
+        default=5e-3,
+        help="minimum sample probability for reward dataset",
     )
     parser.add_argument(
         "--epochs",
