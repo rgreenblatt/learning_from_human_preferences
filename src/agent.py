@@ -1,5 +1,4 @@
 import collections
-from functools import partial
 import itertools
 from typing import Any, List, Tuple
 import random
@@ -7,7 +6,6 @@ import random
 import numpy as np
 from pfrl.utils.batch_states import batch_states
 import torch
-from torch.nn.functional import nll_loss
 import pfrl
 from pfrl.agents import PPO
 from pfrl.agents.ppo import _mean_or_nan
@@ -48,7 +46,8 @@ class Agent(PPO):
         value_stats_window=1000,
         entropy_stats_window=1000,
         value_loss_stats_window=100,
-        policy_loss_stats_window=100
+        policy_loss_stats_window=100,
+        use_reward_model=True,
     ):
         super().__init__(
             model,
@@ -84,18 +83,23 @@ class Agent(PPO):
         self.trajectory_segment_len = trajectory_segment_len
         self.reward_proportion = 1
         self.num_envs = num_envs
-        self.reward_model = reward_model
-        self.reward_model.to(self.device)
-        self.reward_opt = reward_opt
-        self.reward_dataloader = reward_dataloader
-        self.reward_update_interval = reward_update_interval
-        assert self.reward_update_interval < self.update_interval, "Currently reward_update_interval should be less than update_interval"
+        self.use_reward_model = use_reward_model
+        if self.use_reward_model:
+            self.reward_model = reward_model
+            self.reward_model.to(self.device)
+            self.reward_opt = reward_opt
+            self.reward_dataloader = reward_dataloader
+            self.reward_update_interval = reward_update_interval
+            assert_err = (
+                "Currently reward_update_interval should be less than" +
+                " or equal to update_interval"
+            )
+            assert self.reward_update_interval <= self.update_interval, assert_err
 
-        self.rpn_loss_record = collections.deque(maxlen=100)
-        self.rpn_prob_record = collections.deque(maxlen=100)
+            self.rpn_loss_record = collections.deque(maxlen=100)
+            self.rpn_prob_record = collections.deque(maxlen=100)
 
     def reward_training_loop(self) -> None:
-
         for batch, human_labels in self.reward_dataloader:
             # uses model.zero_grad for performance reasons:
             # https://tigress-web.princeton.edu/~jdh4/PyTorchPerformanceTuningGuide_GTC2021.pdf
@@ -132,6 +136,7 @@ class Agent(PPO):
             self.rpn_prob_record.append(probs.detach().cpu().numpy())
 
     def _add_to_dataloader_if_dataset_is_ready(self, episodes) -> None:
+        assert self.use_reward_model
         dataset_size = (
             sum(len(episode) for episode in episodes) + len(self.last_episode) +
             (
@@ -140,7 +145,7 @@ class Agent(PPO):
             )
         )
         if dataset_size >= self.reward_update_interval:
-            self.log.debug("Adding to dataset")
+            self.log.debug("Adding to dataset and running reward training")
             self._flush_last_episode()
             dataset = list(itertools.chain.from_iterable(episodes))
 
@@ -155,6 +160,7 @@ class Agent(PPO):
             self.reward_dataloader.dataset.add_trajectories(
                 trajectory_segments, compare_via_ground_truth(env_rews)
             )
+            self.reward_training_loop()
 
     def _batch_observe_train(
         self, batch_obs, batch_reward, batch_done, batch_reset
@@ -173,25 +179,22 @@ class Agent(PPO):
         ):
             if state is not None:
                 assert action is not None
-                with torch.no_grad():
-                    transition = {
-                        "state":
-                            state,
-                        "action":
-                            action,
-                        "env_reward":
-                            reward,
-                        "reward":
-                            self.reward_model(
-                                torch.from_numpy(
-                                    self.phi(np.array(state))
-                                ).unsqueeze(0).to(device=self.device)
-                            ).item(),
-                        "next_state":
-                            next_state,
-                        "nonterminal":
-                            0.0 if done else 1.0,
-                    }
+                transition = {
+                    "state": state,
+                    "action": action,
+                    "env_reward": reward,
+                    "next_state": next_state,
+                    "nonterminal": 0.0 if done else 1.0,
+                }
+                if self.use_reward_model:
+                    with torch.no_grad():
+                        transition["reward"] = self.reward_model(
+                            torch.from_numpy(
+                                self.phi(np.array(state))
+                            ).unsqueeze(0).to(device=self.device)
+                        ).item()
+                else:
+                    transition["reward"] = transition["env_reward"]
                 self.batch_last_episode[i].append(transition)  # type: ignore
             if done or reset:
                 assert self.batch_last_episode[i]  # type: ignore
@@ -200,14 +203,20 @@ class Agent(PPO):
             self.batch_last_state[i] = None  # type: ignore
             self.batch_last_action[i] = None  # type: ignore
 
-        self._add_to_dataloader_if_dataset_is_ready(self.memory)
+        if self.use_reward_model:
+            self._add_to_dataloader_if_dataset_is_ready(self.memory)
         self._update_if_dataset_is_ready()
 
     def get_extra_statistics(self) -> List[Tuple[str, Any]]:
-        self.extra_stats['rpn_loss'] = _mean_or_nan(self.rpn_loss_record)
-        self.extra_stats['rpn_probs'] = np.concatenate(self.rpn_prob_record, axis=0).mean(axis=0) \
-                if self.rpn_prob_record else np.nan
-        self.extra_stats['num_labels'] = len(self.reward_dataloader.dataset)
+        if self.use_reward_model:
+            self.extra_stats['rpn_loss'] = _mean_or_nan(self.rpn_loss_record)
+            if self.rpn_prob_record:
+                rpn_probs = np.concatenate(self.rpn_prob_record,
+                                           axis=0).mean(axis=0)
+            else:
+                rpn_probs = np.nan
+            self.extra_stats['rpn_probs'] = rpn_probs
+            self.extra_stats['num_labels'] = len(self.reward_dataloader.dataset)
         return list(self.extra_stats.items())
 
     def get_statistics(self) -> List[Tuple[str, Any]]:

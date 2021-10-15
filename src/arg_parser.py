@@ -103,6 +103,18 @@ def make_parser():
         ),
     )
     parser.add_argument(
+        "--no-reward-model",
+        dest="use_reward_model",
+        action="store_false",
+        help="Don't use a reward model",
+    )
+    parser.add_argument(
+        "--use-reward-model",
+        dest="use_reward_model",
+        action="store_true",
+        help="Use a reward model",
+    )
+    parser.add_argument(
         "--log-level",
         type=int,
         default=20,

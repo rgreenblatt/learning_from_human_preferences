@@ -121,6 +121,7 @@ def main():
         entropy_coef=1e-2,
         recurrent=False,
         max_grad_norm=0.5,
+        use_reward_model=args.use_reward_model,
     )
     if args.load:
         agent.load(args.load)
@@ -168,16 +169,8 @@ def main():
                     t + args.reward_proportion_update_freq
                 )
 
-        def run_reward_training(_, agent, t):
-            if t > 0 and t % int(
-                args.rpn_sample_prop * args.update_interval
-            ) == 0:
-                agent.log.debug("Running reward training")
-                agent.reward_training_loop()
-
         step_hooks.append(update_time_hook)
         step_hooks.append(update_reward_prop)
-        step_hooks.append(run_reward_training)
 
         experiments.train_agent_batch_with_evaluation(
             agent=agent,
