@@ -57,6 +57,18 @@ def make_parser():
         "--weight-decay", type=float, default=0, help="Adam weight decay."
     )
     parser.add_argument(
+        "--reward-model-lr",
+        type=float,
+        default=1e-3,
+        help="Learning rate for the reward model."
+    )
+    parser.add_argument(
+        "--reward-model-weight-decay",
+        type=float,
+        default=1e-5,
+        help="Adam weight decay for the reward model."
+    )
+    parser.add_argument(
         "--eval-interval",
         type=float2int,
         default=100000,

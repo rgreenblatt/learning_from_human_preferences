@@ -85,9 +85,9 @@ def main():
     )
     reward_opt = torch.optim.Adam(
         reward_model.parameters(),
-        lr=args.lr,
+        lr=args.reward_model_lr,
         eps=1e-5,
-        weight_decay=args.weight_decay
+        weight_decay=args.reward_model_weight_decay
     )
 
     # TODO: add reward model and reward model optimizer (also use adam, use
