@@ -6,9 +6,6 @@ from torch.nn.functional import log_softmax, softmax
 
 from utils import pfrl_trajectory_key_to_tensor
 
-class RewardModelWrapper(gym.RewardWrapper):
-    def __init__(self, env, sample_prop):
-        gym.RewardWrapper.__init__(self, env)
 
 def sample_trajectory_segments_from_trajectory(
     k: int, n: int, trajectory: List[Dict[str, torch.Tensor]]

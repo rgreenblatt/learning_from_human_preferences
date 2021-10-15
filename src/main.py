@@ -46,8 +46,6 @@ def main():
             flicker=False,
             frame_stack=False,
         )
-        if args.reward_model_sample_prop is not None:
-            env = RewardModelWrapper(env, args.reward_model_sample_prop)
         env.seed(env_seed)
         if args.monitor:
             env = pfrl.wrappers.Monitor(
