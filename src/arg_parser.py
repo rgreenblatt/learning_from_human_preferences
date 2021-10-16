@@ -154,12 +154,6 @@ def make_parser():
         help="Interval (in timesteps) between PPO iterations.",
     )
     parser.add_argument(
-        "--reward-update-interval",
-        type=int,
-        default=128 * 4,
-        help="Interval (in timesteps) between PPO iterations.",
-    )
-    parser.add_argument(
         "--batchsize",
         type=float2int,
         default=32 * 8,
@@ -174,8 +168,14 @@ def make_parser():
     parser.add_argument(
         "--rpn-sample-prop",
         type=float,
-        default=0.1,
+        default=0.25,
         help="proportion of update_interval timesteps used for rpn training",
+    )
+    parser.add_argument(
+        "--reward-model-sample-decay",
+        type=float,
+        default=0.9,
+        help="decay per group of reward model samples",
     )
     parser.add_argument(
         "--min-sample-prob",

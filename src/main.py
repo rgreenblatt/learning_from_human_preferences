@@ -95,6 +95,7 @@ def main():
         return np.asarray(x, dtype=np.float32) / 255
 
     dataset = RewardModelTrainingDataset(
+        sample_decay=args.reward_model_sample_decay,
         min_sample_prob=args.min_sample_prob,
         size_multiplier=args.reward_model_training_size_multiplier
     )
@@ -109,7 +110,7 @@ def main():
         opt,
         reward_model=reward_model,
         reward_opt=reward_opt,
-        reward_update_interval=args.reward_update_interval,
+        reward_update_interval=round(args.update_interval * args.rpn_sample_prop),
         base_reward_proportion=args.base_reward_proportion,
         log=logger,
         num_envs=args.num_envs,
