@@ -89,6 +89,7 @@ class Agent(PPO):
         self.num_envs = num_envs
         self.use_reward_model = use_reward_model
         if self.use_reward_model:
+            self._num_labels = 0
             self.reward_proportion = base_reward_proportion
             self.reward_model = reward_model
             self.reward_model.to(self.device)
@@ -163,10 +164,16 @@ class Agent(PPO):
                 )
             )
 
+            num_additional_labels = round(
+                len(dataset) / self.trajectory_segment_len *
+                self.reward_proportion
+            )
+            self._num_labels += num_additional_labels
+
             # we want to only store segments onto the cpu
             trajectory_segments, env_rews = sample_trajectory_segments_from_trajectory(
                 self.trajectory_segment_len,
-                round(len(dataset) / self.trajectory_segment_len * self.reward_proportion),
+                num_additional_labels,
                 dataset,
                 lambda x: batch_states(x, torch.device("cpu"), self.phi),
                 lambda x: batch_states(x, torch.device("cpu"), lambda x : x),
@@ -234,7 +241,7 @@ class Agent(PPO):
             else:
                 rpn_probs = np.nan
             self.extra_stats['rpn_probs'] = rpn_probs
-            self.extra_stats['num_labels'] = len(self.reward_dataloader.dataset)
+            self.extra_stats['num_labels'] = self._num_labels
         return list(self.extra_stats.items())
 
     def get_statistics(self) -> List[Tuple[str, Any]]:
