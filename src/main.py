@@ -97,7 +97,8 @@ def main():
     dataset = RewardModelTrainingDataset(
         sample_decay=args.reward_model_sample_decay,
         min_sample_prob=args.min_sample_prob,
-        size_multiplier=args.reward_model_training_size_multiplier
+        size_multiplier=args.reward_model_training_size_multiplier,
+        batch_size=args.rpn_batchsize,
     )
     reward_dataloader = DataLoader(
         dataset, batch_size=args.rpn_batchsize, shuffle=False, num_workers=0

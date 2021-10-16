@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -17,7 +17,9 @@ class RewardModelTrainingDataset(Dataset):
     trajectories is less than min_sample_prob, that group is eliminated.
 
     The size is arbitrary because we always sample randomly, but
-    it is computed as size_multiplier * n / p
+    it is computed as round((size_multiplier * n / p) / batch_size) * batch_size
+    Dividing and multiplying by batch_size ensures the size is a multiple
+    of batch size. This is only done if batch size isn't none.
     Where:
         p: probability of sampling from most recent group
         n: number of trajectories in most recent group
@@ -32,44 +34,40 @@ class RewardModelTrainingDataset(Dataset):
         sample_decay: float = 0.5,
         min_sample_prob: float = 1e-4,
         size_multiplier: float = 1.5,
-        human_error_rate: float = 0.1
+        batch_size: Optional[int] = None,
     ) -> None:
         super().__init__()
 
         assert 0. < sample_decay < 1.
         assert 0. <= min_sample_prob < 1.
         assert size_multiplier > 0.
-        assert 0. <= human_error_rate < 0.5
+        assert batch_size is None or batch_size > 0
 
         self._sample_decay = sample_decay
         self._min_sample_prob = min_sample_prob
         self._size_multiplier = size_multiplier
+        self._batch_size = batch_size
 
         self._samples: List[Tuple[torch.Tensor, torch.Tensor]] = []
         self._probs: List[float] = []
 
-        self._idx_0_pref = torch.tensor(
-            [1 - human_error_rate, human_error_rate]
-        )
-        self._idx_1_pref = torch.tensor(
-            [human_error_rate, 1 - human_error_rate]
-        )
-
-    def add_trajectories(
-        self, states: torch.Tensor, preferences: torch.Tensor
-    ) -> None:
+    def add_trajectories(self, states: torch.Tensor, mus: torch.Tensor) -> None:
         """
         Args:
             states (Tensor): [n x 2 x k x (state dim)]
-            preferences (Tensor): [n] bool, true if idx 0 is prefered over idx 1
+            mus (Tensor): [n x 2], relative preferences weights of states
+                                   (probability of picking each state, should
+                                   sum to 1 over the dimension with 2 values)
 
         Where n is number of trajectories, k is trajectory length, and the
         state dim is whatever remaining dimensions the state has.
         """
-        assert states.size(0) == preferences.size(0)
+        assert states.size(0) == mus.size(0)
         assert states.size(1) == 2
+        assert mus.size(1) == 2
+        assert len(mus.size()) == 2
 
-        self._samples.append((states, preferences))
+        self._samples.append((states, mus))
         self._compute_probs()
 
         if self._probs[0] < self._min_sample_prob:
@@ -92,10 +90,14 @@ class RewardModelTrainingDataset(Dataset):
     def __len__(self) -> int:
         if len(self._samples) == 0:
             return 0
-        return round(
+        raw_size = (
             self._size_multiplier * self._samples[-1][0].size(0) /
             self._probs[-1]
         )
+        if self._batch_size is not None:
+            return round(raw_size / self._batch_size) * self._batch_size
+        else:
+            return round(raw_size)
 
     # NOTE: idx input isn't relevant, a bit gross...
     def __getitem__(self, _) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -105,14 +107,7 @@ class RewardModelTrainingDataset(Dataset):
         n = self._samples[group_idx][0].size(0)
         idx = np.random.randint(0, n)
 
-        x = self._samples[group_idx][0][idx]
-
-        if bool(self._samples[group_idx][1][idx]):
-            label_probs = self._idx_0_pref
-        else:
-            label_probs = self._idx_1_pref
-
-        return x, label_probs
+        return self._samples[group_idx][0][idx], self._samples[group_idx][1][idx]
 
 
 if __name__ == "__main__":

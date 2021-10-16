@@ -174,7 +174,7 @@ def make_parser():
     parser.add_argument(
         "--reward-model-sample-decay",
         type=float,
-        default=0.9,
+        default=0.95,
         help="decay per group of reward model samples",
     )
     parser.add_argument(

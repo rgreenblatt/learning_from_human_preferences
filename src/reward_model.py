@@ -39,7 +39,7 @@ def sample_trajectory_segments_from_trajectory(
         seg_pair = []
         rew_pair = []
         for _ in range(2):
-            idx = randint(0, len(trajectory) - k)
+            idx = randint(0, (len(trajectory) // k) - 1) * k
             seg_pair.append(states[idx:idx + k])
             rew_pair.append(env_rewards[idx:idx + k])
 
@@ -74,12 +74,14 @@ def probability_of_preferring_trajectory(
 def compare_via_ground_truth(env_rews: torch.Tensor) -> torch.Tensor:
     """
     Args:
-        env_rews (Tensor): n x 2 x k x 1
+        env_rews (Tensor): [n x 2 x k x 1]
 
     Returns:
-        (Tensor): [n] of 0 or 1, depending on which was higher reward
+        (Tensor): [n x 2] of probs
+
+    computes probability_of_preferring_trajectory via ground truth
     """
-    return torch.argmax(env_rews.sum(dim=(2, 3)), dim=1)
+    return softmax(env_rews.sum(dim=(2, 3)), dim=1)
 
 
 def compare_via_human(

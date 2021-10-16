@@ -134,7 +134,7 @@ class Agent(PPO):
                 reward_sum_1, reward_sum_2
             )
 
-            rpn_loss = -(log_probs * human_labels).sum()
+            rpn_loss = -(log_probs * human_labels).mean()
             rpn_loss.backward()
             self.reward_opt.step()
 
