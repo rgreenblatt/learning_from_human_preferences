@@ -171,7 +171,7 @@ def main():
         def update_reward_prop(_, agent, t):
             if t > 0 and t % args.reward_proportion_update_freq == 0:
                 agent.reward_proportion = (
-                    args.base_reward_proposition *
+                    args.base_reward_proportion *
                     args.reward_proportion_update_freq /
                     (t + args.reward_proportion_update_freq)
                 )
