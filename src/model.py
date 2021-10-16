@@ -36,4 +36,5 @@ def reward_predictor_model(obs_n_channels):
         nn.Linear(3136, 64),
         nn.ReLU(),
         nn.Linear(64, 1),
+        nn.CELU()
     )
