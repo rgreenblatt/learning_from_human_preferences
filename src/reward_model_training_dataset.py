@@ -95,7 +95,7 @@ class RewardModelTrainingDataset(Dataset):
             self._probs[-1]
         )
         if self._batch_size is not None:
-            return round(raw_size / self._batch_size) * self._batch_size
+            return max(round(raw_size / self._batch_size), 1) * self._batch_size
         else:
             return round(raw_size)
 
