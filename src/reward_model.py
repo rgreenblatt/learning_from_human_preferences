@@ -1,26 +1,24 @@
 from random import randint
 from typing import Callable, Dict, List, Tuple
-import gym
 import torch
 from torch.nn.functional import log_softmax, softmax
-
-from utils import pfrl_trajectory_key_to_tensor
 
 
 def sample_trajectory_segments_from_trajectory(
     k: int,
     n: int,
     trajectory: List[Dict[str, torch.Tensor]],
-    batch_func: Callable,
+    state_batch_func: Callable,
+    rew_batch_func: Callable,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Args:
-        k (int): len of trajectory_seg 
+        k (int): len of trajectory_seg
         n (int): number of trajectory_seg to sample (with replacement)
         trajectory (List[Dict[str, Tensor]]): list of previous N trajectory info,
-        where 
+        where
             - N is the number of steps between updating the reward model
-        so trajectory is list of tensors of M x <> shape 
+        so trajectory is list of tensors of M x <> shape
 
     Returns:
         segs (Tensor): tensor of shape n x 2 x k x (shape of state)
@@ -32,8 +30,8 @@ def sample_trajectory_segments_from_trajectory(
         )
 
     # N x shape tensor
-    states = batch_func([b['state'] for b in trajectory])
-    env_rewards = batch_func([b['env_reward'] for b in trajectory])
+    states = state_batch_func([b['state'] for b in trajectory])
+    env_rewards = rew_batch_func([b['env_reward'] for b in trajectory])
 
     segs = []
     rews = []

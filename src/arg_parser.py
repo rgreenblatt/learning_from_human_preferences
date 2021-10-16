@@ -75,6 +75,19 @@ def make_parser():
         help="Interval (in timesteps) between evaluation phases.",
     )
     parser.add_argument(
+        "--base-reward-proportion",
+        type=float,
+        default=0.5,
+        help="initial reward proportion (decays)",
+    )
+    parser.add_argument(
+        "--reward-model-training-size-multiplier",
+        type=float,
+        default=3.,
+        help="determines amount of data trained on per each time data "
+        "is added for the reward model",
+    )
+    parser.add_argument(
         "--reward-proportion-update-freq",
         type=float2int,
         default=5e6,
@@ -138,6 +151,12 @@ def make_parser():
         "--update-interval",
         type=float2int,
         default=128 * 8,
+        help="Interval (in timesteps) between PPO iterations.",
+    )
+    parser.add_argument(
+        "--reward-update-interval",
+        type=int,
+        default=128 * 4,
         help="Interval (in timesteps) between PPO iterations.",
     )
     parser.add_argument(

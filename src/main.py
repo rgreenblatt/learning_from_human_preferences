@@ -94,7 +94,10 @@ def main():
         # Feature extractor
         return np.asarray(x, dtype=np.float32) / 255
 
-    dataset = RewardModelTrainingDataset(min_sample_prob=args.min_sample_prob)
+    dataset = RewardModelTrainingDataset(
+        min_sample_prob=args.min_sample_prob,
+        size_multiplier=args.reward_model_training_size_multiplier
+    )
     reward_dataloader = DataLoader(
         dataset, batch_size=args.rpn_batchsize, shuffle=False, num_workers=0
     )
@@ -106,7 +109,8 @@ def main():
         opt,
         reward_model=reward_model,
         reward_opt=reward_opt,
-        reward_update_interval=int(args.update_interval * args.rpn_sample_prop),
+        reward_update_interval=args.reward_update_interval,
+        base_reward_proportion=args.base_reward_proportion,
         log=logger,
         num_envs=args.num_envs,
         reward_dataloader=reward_dataloader,
@@ -165,8 +169,10 @@ def main():
 
         def update_reward_prop(_, agent, t):
             if t > 0 and t % args.reward_proportion_update_freq == 0:
-                agent.reward_proportion = args.reward_proportion_update_freq / (
-                    t + args.reward_proportion_update_freq
+                agent.reward_proportion = (
+                    args.base_reward_proposition *
+                    args.reward_proportion_update_freq /
+                    (t + args.reward_proportion_update_freq)
                 )
 
         step_hooks.append(update_time_hook)

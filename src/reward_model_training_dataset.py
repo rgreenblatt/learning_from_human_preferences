@@ -16,8 +16,8 @@ class RewardModelTrainingDataset(Dataset):
     To save on memory, if the probability of sampling from a group of
     trajectories is less than min_sample_prob, that group is eliminated.
 
-    The epoch size is arbitrary because we always sample randomly, but
-    it is computed as epoch_size_multiplier * n / p
+    The size is arbitrary because we always sample randomly, but
+    it is computed as size_multiplier * n / p
     Where:
         p: probability of sampling from most recent group
         n: number of trajectories in most recent group
@@ -31,19 +31,19 @@ class RewardModelTrainingDataset(Dataset):
         self,
         sample_decay: float = 0.5,
         min_sample_prob: float = 1e-4,
-        epoch_size_multiplier: float = 1.5,
+        size_multiplier: float = 1.5,
         human_error_rate: float = 0.1
     ) -> None:
         super().__init__()
 
         assert 0. < sample_decay < 1.
         assert 0. <= min_sample_prob < 1.
-        assert epoch_size_multiplier > 0.
+        assert size_multiplier > 0.
         assert 0. <= human_error_rate < 0.5
 
         self._sample_decay = sample_decay
         self._min_sample_prob = min_sample_prob
-        self._epoch_size_multiplier = epoch_size_multiplier
+        self._size_multiplier = size_multiplier
 
         self._samples: List[Tuple[torch.Tensor, torch.Tensor]] = []
         self._probs: List[float] = []
@@ -93,7 +93,7 @@ class RewardModelTrainingDataset(Dataset):
         if len(self._samples) == 0:
             return 0
         return round(
-            self._epoch_size_multiplier * self._samples[-1][0].size(0) /
+            self._size_multiplier * self._samples[-1][0].size(0) /
             self._probs[-1]
         )
 

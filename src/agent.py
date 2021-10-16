@@ -10,7 +10,11 @@ import pfrl
 from pfrl.agents import PPO
 from pfrl.agents.ppo import _mean_or_nan
 
-from reward_model import compare_via_ground_truth, probability_of_preferring_trajectory, sample_trajectory_segments_from_trajectory
+from reward_model import (
+    compare_via_ground_truth,
+    probability_of_preferring_trajectory,
+    sample_trajectory_segments_from_trajectory,
+)
 
 
 class Agent(PPO):
@@ -22,6 +26,7 @@ class Agent(PPO):
         reward_model,
         reward_opt,
         reward_update_interval,
+        base_reward_proportion,
         num_envs,
         log,
         trajectory_segment_len=25,
@@ -79,13 +84,12 @@ class Agent(PPO):
             raise ValueError("This does not support recurrent nets")
         self.extra_stats = {}
         self.t = 0
-        self._last_update_time = 0
         self.log = log
         self.trajectory_segment_len = trajectory_segment_len
-        self.reward_proportion = 1
         self.num_envs = num_envs
         self.use_reward_model = use_reward_model
         if self.use_reward_model:
+            self.reward_proportion = base_reward_proportion
             self.reward_model = reward_model
             self.reward_model.to(self.device)
             self.reward_opt = reward_opt
@@ -100,7 +104,9 @@ class Agent(PPO):
             self.rpn_loss_record = collections.deque(maxlen=100)
             self.rpn_prob_record = collections.deque(maxlen=100)
 
-    def reward_training_loop(self) -> None:
+            self._reward_model_memory_ptr = 0
+
+    def reward_train(self) -> None:
         for batch, human_labels in self.reward_dataloader:
             # uses model.zero_grad for performance reasons:
             # https://tigress-web.princeton.edu/~jdh4/PyTorchPerformanceTuningGuide_GTC2021.pdf
@@ -136,33 +142,41 @@ class Agent(PPO):
             self.rpn_loss_record.append(rpn_loss.item())
             self.rpn_prob_record.append(probs.detach().cpu().numpy())
 
-    def _add_to_dataloader_if_dataset_is_ready(self, episodes) -> None:
+    def _add_to_dataloader_if_dataset_is_ready(self) -> None:
         assert self.use_reward_model
         dataset_size = (
-            sum(len(episode) for episode in episodes) + len(self.last_episode) +
-            (
+            sum(
+                len(episode)
+                for episode in self.memory[self._reward_model_memory_ptr:]
+            ) + len(self.last_episode) + (
                 0 if self.batch_last_episode is None else
                 sum(len(episode) for episode in self.batch_last_episode)
             )
         )
+        # TODO: consider avoiding jump cuts
         if dataset_size >= self.reward_update_interval:
             self.log.debug("Adding to dataset and running reward training")
             self._flush_last_episode()
-            dataset = list(itertools.chain.from_iterable(episodes))
+            dataset = list(
+                itertools.chain.from_iterable(
+                    self.memory[self._reward_model_memory_ptr:]
+                )
+            )
 
             # we want to only store segments onto the cpu
             trajectory_segments, env_rews = sample_trajectory_segments_from_trajectory(
                 self.trajectory_segment_len,
-                int((self.t - self._last_update_time) * self.reward_proportion),
+                round(len(dataset) / self.trajectory_segment_len * self.reward_proportion),
                 dataset,
                 lambda x: batch_states(x, torch.device("cpu"), self.phi),
+                lambda x: batch_states(x, torch.device("cpu"), lambda x : x),
             )
 
             self.reward_dataloader.dataset.add_trajectories(
                 trajectory_segments, compare_via_ground_truth(env_rews)
             )
-            self.reward_train_epoch()
-            self._last_update_time = self.t
+            self.reward_train()
+            self._reward_model_memory_ptr = len(self.memory)
 
     def _batch_observe_train(
         self, batch_obs, batch_reward, batch_done, batch_reset
@@ -206,15 +220,17 @@ class Agent(PPO):
             self.batch_last_action[i] = None  # type: ignore
 
         if self.use_reward_model:
-            self._add_to_dataloader_if_dataset_is_ready(self.memory)
+            self._add_to_dataloader_if_dataset_is_ready()
         self._update_if_dataset_is_ready()
+        if len(self.memory) == 0:
+            self._reward_model_memory_ptr = 0
 
     def get_extra_statistics(self) -> List[Tuple[str, Any]]:
         if self.use_reward_model:
             self.extra_stats['rpn_loss'] = _mean_or_nan(self.rpn_loss_record)
             if self.rpn_prob_record:
                 rpn_probs = np.concatenate(self.rpn_prob_record,
-                                           axis=0).mean(axis=0)
+                                           axis=0).mean(axis=0)[0]
             else:
                 rpn_probs = np.nan
             self.extra_stats['rpn_probs'] = rpn_probs
