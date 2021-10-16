@@ -87,6 +87,9 @@ class RewardModelTrainingDataset(Dataset):
             for idx in range(len(self._samples))
         ]
 
+    def current_num_labels(self) -> int:
+        return sum(states.size(0) for states, _ in self._samples)
+
     def __len__(self) -> int:
         if len(self._samples) == 0:
             return 0

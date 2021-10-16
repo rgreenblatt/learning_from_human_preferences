@@ -77,13 +77,13 @@ def make_parser():
     parser.add_argument(
         "--base-reward-proportion",
         type=float,
-        default=0.5,
+        default=0.1,
         help="initial reward proportion (decays)",
     )
     parser.add_argument(
         "--reward-model-training-size-multiplier",
         type=float,
-        default=3.,
+        default=1.,
         help="determines amount of data trained on per each time data "
         "is added for the reward model",
     )
@@ -168,13 +168,20 @@ def make_parser():
     parser.add_argument(
         "--rpn-sample-prop",
         type=float,
-        default=0.25,
+        default=1.0,
         help="proportion of update_interval timesteps used for rpn training",
+    )
+    parser.add_argument(
+        "--rpn-num-full-prop-updates",
+        type=int,
+        default=16,
+        help="num of rpn updates with 1.0 reward prop before"
+        " reducing to base value",
     )
     parser.add_argument(
         "--reward-model-sample-decay",
         type=float,
-        default=0.95,
+        default=0.97,
         help="decay per group of reward model samples",
     )
     parser.add_argument(

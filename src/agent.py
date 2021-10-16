@@ -27,6 +27,7 @@ class Agent(PPO):
         reward_opt,
         reward_update_interval,
         base_reward_proportion,
+        rpn_num_full_prop_updates,
         num_envs,
         log,
         trajectory_segment_len=25,
@@ -89,8 +90,10 @@ class Agent(PPO):
         self.num_envs = num_envs
         self.use_reward_model = use_reward_model
         if self.use_reward_model:
+            self._n_rpn_updates = 0
             self._num_labels = 0
             self.reward_proportion = base_reward_proportion
+            self._rpn_num_full_prop_updates = rpn_num_full_prop_updates
             self.reward_model = reward_model
             self.reward_model.to(self.device)
             self.reward_opt = reward_opt
@@ -163,10 +166,12 @@ class Agent(PPO):
                     self.memory[self._reward_model_memory_ptr:]
                 )
             )
-
+            if self._n_rpn_updates < self._rpn_num_full_prop_updates:
+                reward_proportion = 1.0
+            else:
+                reward_proportion = self.reward_proportion
             num_additional_labels = round(
-                len(dataset) / self.trajectory_segment_len *
-                self.reward_proportion
+                len(dataset) / self.trajectory_segment_len * reward_proportion
             )
             self._num_labels += num_additional_labels
 
@@ -183,7 +188,16 @@ class Agent(PPO):
                 trajectory_segments, compare_via_ground_truth(env_rews)
             )
             self.reward_train()
+            if self._n_rpn_updates == self._rpn_num_full_prop_updates - 1:
+                extra_epochs = 50
+                self.log.info(
+                    f"running {extra_epochs} extra reward model training epochs with"
+                    " initial data"
+                )
+                for _ in range(extra_epochs):
+                    self.reward_train()
             self._reward_model_memory_ptr = len(self.memory)
+            self._n_rpn_updates += 1
 
     def _batch_observe_train(
         self, batch_obs, batch_reward, batch_done, batch_reset
@@ -242,6 +256,11 @@ class Agent(PPO):
                 rpn_probs = np.nan
             self.extra_stats['rpn_probs'] = rpn_probs
             self.extra_stats['num_labels'] = self._num_labels
+            self.extra_stats['n_rpn_updates'] = self._n_rpn_updates
+            self.extra_stats[ 'current_num_labels' ] = \
+                self.reward_dataloader.dataset.current_num_labels()
+            self.extra_stats['rpn_dataset_len'] = \
+                len(self.reward_dataloader.dataset)
         return list(self.extra_stats.items())
 
     def get_statistics(self) -> List[Tuple[str, Any]]:
