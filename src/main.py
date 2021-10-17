@@ -114,6 +114,7 @@ def main():
         reward_update_interval=round(
             args.update_interval * args.rpn_sample_prop
         ),
+        ground_truth_human_like=args.rpn_ground_truth_human_like,
         base_reward_proportion=args.base_reward_proportion,
         rpn_num_full_prop_updates=args.rpn_num_full_prop_updates,
         log=logger,

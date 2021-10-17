@@ -181,8 +181,22 @@ def make_parser():
     parser.add_argument(
         "--reward-model-sample-decay",
         type=float,
-        default=0.97,
+        default=0.98,
         help="decay per group of reward model samples",
+    )
+    parser.add_argument(
+        "--rpn-ground-truth-human-like",
+        action="store_true",
+        dest="rpn_ground_truth_human_like",
+        default=True,
+        help="use human like ground truth (assume fixed error rate)",
+    )
+    parser.add_argument(
+        "--rpn-ground-truth-softmax",
+        action="store_false",
+        dest="rpn_ground_truth_human_like",
+        default=True,
+        help="use softmax to compute ground truth (as opposed to human like)",
     )
     parser.add_argument(
         "--min-sample-prob",

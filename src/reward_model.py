@@ -71,7 +71,7 @@ def probability_of_preferring_trajectory(
     return log_probs, probs
 
 
-def compare_via_ground_truth(env_rews: torch.Tensor) -> torch.Tensor:
+def compare_via_ground_truth_softmax(env_rews: torch.Tensor) -> torch.Tensor:
     """
     Args:
         env_rews (Tensor): [n x 2 x k x 1]
@@ -84,9 +84,66 @@ def compare_via_ground_truth(env_rews: torch.Tensor) -> torch.Tensor:
     return softmax(env_rews.sum(dim=(2, 3)), dim=1)
 
 
+def compare_via_ground_truth_human_like(
+    env_rews: torch.Tensor, human_error_rate=0.1
+) -> torch.Tensor:
+    """
+    Args:
+        env_rews (Tensor): [n x 2 x k x 1]
+
+    Returns:
+        (Tensor): [n x 2] of probs
+
+    computes probability_of_preferring_trajectory via ground truth
+    """
+    rew_sums = env_rews.sum(dim=(2, 3))
+    rew_abs_diffs = torch.abs(rew_sums[:, 0] - rew_sums[:, 1])
+
+    lower_prob = torch.full(
+        (env_rews.size(0),),
+        human_error_rate,
+        dtype=env_rews.dtype,
+        device=env_rews.device
+    )
+    higher_prob = torch.full_like(lower_prob, 1 - human_error_rate)
+    left_better = torch.stack([higher_prob, lower_prob], dim=1)
+    right_better = torch.stack([lower_prob, higher_prob], dim=1)
+    distinct_probs = torch.where(
+        (rew_sums[:, 0] > rew_sums[:, 1]).unsqueeze(-1),
+        left_better,
+        right_better
+    )
+
+    epsilon = 0.05
+    # any reason to change epsilon? (it's just supposed to indicate when
+    # a trajectory is 'clearly' better.)
+    return torch.where(
+        (rew_abs_diffs > epsilon).unsqueeze(-1),
+        distinct_probs,
+        torch.full_like(distinct_probs, 0.5)
+    )
+
+
 def compare_via_human(
     trajectory_seg_1: List[Dict[str, torch.Tensor]],
     trajectory_seg_2: List[Dict[str, torch.Tensor]]
 ) -> float:
     raise NotImplementedError()
     return 0.0
+
+
+if __name__ == "__main__":
+    print(
+        compare_via_ground_truth_human_like(
+            torch.tensor(
+                [
+                    [100.0, 0.0],
+                    [0.0, 0.0],
+                    [0.01, 0.0],
+                    [0.1, 0.0],
+                    [0.0, 0.1],
+                    [0.0, 0.1],
+                ]
+            ).unsqueeze(-1).unsqueeze(-1)
+        )
+    )

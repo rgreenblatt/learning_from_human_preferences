@@ -11,7 +11,8 @@ from pfrl.agents import PPO
 from pfrl.agents.ppo import _mean_or_nan
 
 from reward_model import (
-    compare_via_ground_truth,
+    compare_via_ground_truth_human_like,
+    compare_via_ground_truth_softmax,
     probability_of_preferring_trajectory,
     sample_trajectory_segments_from_trajectory,
 )
@@ -26,6 +27,7 @@ class Agent(PPO):
         reward_model,
         reward_opt,
         reward_update_interval,
+        ground_truth_human_like,
         base_reward_proportion,
         rpn_num_full_prop_updates,
         num_envs,
@@ -98,6 +100,7 @@ class Agent(PPO):
             self.reward_model.to(self.device)
             self.reward_opt = reward_opt
             self.reward_dataloader = reward_dataloader
+            self._ground_truth_human_like = ground_truth_human_like
             self.reward_update_interval = reward_update_interval
             assert_err = (
                 "Currently reward_update_interval should be less than" +
@@ -184,8 +187,12 @@ class Agent(PPO):
                 lambda x: batch_states(x, torch.device("cpu"), lambda x : x),
             )
 
+            if self._ground_truth_human_like:
+                mus = compare_via_ground_truth_human_like(env_rews)
+            else:
+                mus = compare_via_ground_truth_softmax(env_rews)
             self.reward_dataloader.dataset.add_trajectories(
-                trajectory_segments, compare_via_ground_truth(env_rews)
+                trajectory_segments, mus
             )
             self.reward_train()
             if self._n_rpn_updates == self._rpn_num_full_prop_updates - 1:
