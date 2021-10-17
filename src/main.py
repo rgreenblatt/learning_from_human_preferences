@@ -111,12 +111,12 @@ def main():
         opt,
         reward_model=reward_model,
         reward_opt=reward_opt,
-        reward_update_interval=round(
-            args.update_interval * args.rpn_sample_prop
-        ),
+        reward_update_interval=args.reward_update_interval,
+        reward_episode_chopping_interval=args.reward_episode_chopping_interval,
         ground_truth_human_like=args.rpn_ground_truth_human_like,
         base_reward_proportion=args.base_reward_proportion,
         rpn_num_full_prop_updates=args.rpn_num_full_prop_updates,
+        reward_inference_batch_size=args.rpn_inference_batchsize,
         log=logger,
         num_envs=args.num_envs,
         reward_dataloader=reward_dataloader,

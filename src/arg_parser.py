@@ -41,7 +41,7 @@ def make_parser():
     parser.add_argument(
         "--steps",
         type=int,
-        default=5*10**7,
+        default=5 * 10**7,
         help="Total time steps for training."
     )
     parser.add_argument(
@@ -154,27 +154,41 @@ def make_parser():
         help="Interval (in timesteps) between PPO iterations.",
     )
     parser.add_argument(
+        "--reward-update-interval",
+        type=float2int,
+        default=128 * 32,
+        help="Interval (in timesteps) between adding to reward model dataset"
+        " and running training.",
+    )
+    parser.add_argument(
+        "--reward-episode-chopping-interval",
+        type=float2int,
+        default=128 * 32,
+        help="Interval (in timesteps) at which episodes are chopped regardless"
+        " of completion.",
+    )
+    parser.add_argument(
         "--batchsize",
         type=float2int,
-        default=32 * 8,
+        default=32 * 4,
         help="Size of minibatch (in timesteps).",
     )
     parser.add_argument(
         "--rpn-batchsize",
         type=float2int,
+        default=32 * 4,
+        help="Size of minibatch (in timesteps).",
+    )
+    parser.add_argument(
+        "--rpn-inference-batchsize",
+        type=float2int,
         default=32 * 8,
         help="Size of minibatch (in timesteps).",
     )
     parser.add_argument(
-        "--rpn-sample-prop",
-        type=float,
-        default=1.0,
-        help="proportion of update_interval timesteps used for rpn training",
-    )
-    parser.add_argument(
         "--rpn-num-full-prop-updates",
         type=int,
-        default=16,
+        default=4,
         help="num of rpn updates with 1.0 reward prop before"
         " reducing to base value",
     )

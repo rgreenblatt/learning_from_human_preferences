@@ -27,9 +27,11 @@ class Agent(PPO):
         reward_model,
         reward_opt,
         reward_update_interval,
+        reward_episode_chopping_interval,
         ground_truth_human_like,
         base_reward_proportion,
         rpn_num_full_prop_updates,
+        reward_inference_batch_size,
         num_envs,
         log,
         trajectory_segment_len=32,
@@ -88,25 +90,25 @@ class Agent(PPO):
         self.extra_stats = {}
         self.t = 0
         self.log = log
-        self.trajectory_segment_len = trajectory_segment_len
         self.num_envs = num_envs
         self.use_reward_model = use_reward_model
         if self.use_reward_model:
             self._n_rpn_updates = 0
             self._num_labels = 0
+            self.trajectory_segment_len = trajectory_segment_len
             self.reward_proportion = base_reward_proportion
             self._rpn_num_full_prop_updates = rpn_num_full_prop_updates
+            self.reward_inference_batch_size = reward_inference_batch_size
             self.reward_model = reward_model
             self.reward_model.to(self.device)
             self.reward_opt = reward_opt
             self.reward_dataloader = reward_dataloader
             self._ground_truth_human_like = ground_truth_human_like
             self.reward_update_interval = reward_update_interval
-            assert_err = (
-                "Currently reward_update_interval should be less than" +
-                " or equal to update_interval"
-            )
-            assert self.reward_update_interval <= self.update_interval, assert_err
+            self.reward_episode_chopping_interval = reward_episode_chopping_interval
+
+            self._reward_model_dataset_memory = []
+            self._reward_model_batch_last_episode = None
 
             self.rpn_loss_record = collections.deque(maxlen=100)
             self.rpn_prob_record = collections.deque(maxlen=100)
@@ -149,24 +151,17 @@ class Agent(PPO):
             self.rpn_loss_record.append(rpn_loss.item())
             self.rpn_prob_record.append(probs.detach().cpu().numpy())
 
+    # returns true if updated this iteration
     def _add_to_dataloader_if_dataset_is_ready(self) -> None:
         assert self.use_reward_model
-        dataset_size = (
-            sum(
-                len(episode)
-                for episode in self.memory[self._reward_model_memory_ptr:]
-            ) + len(self.last_episode) + (
-                0 if self.batch_last_episode is None else
-                sum(len(episode) for episode in self.batch_last_episode)
-            )
+        dataset_size = sum(
+            len(episode) for episode in self._reward_model_dataset_memory
         )
-        # TODO: consider avoiding jump cuts
+
         if dataset_size >= self.reward_update_interval:
-            self.log.debug("Adding to dataset and running reward training")
-            self._flush_last_episode()
             dataset = list(
                 itertools.chain.from_iterable(
-                    self.memory[self._reward_model_memory_ptr:]
+                    self._reward_model_dataset_memory
                 )
             )
             if self._n_rpn_updates < self._rpn_num_full_prop_updates:
@@ -194,22 +189,41 @@ class Agent(PPO):
             self.reward_dataloader.dataset.add_trajectories(
                 trajectory_segments, mus
             )
-            self.reward_train()
+            n_epochs = round(dataset_size / self.reward_update_interval)
             if self._n_rpn_updates == self._rpn_num_full_prop_updates - 1:
                 extra_epochs = 50
                 self.log.info(
                     f"running {extra_epochs} extra reward model training epochs with"
                     " initial data"
                 )
-                for _ in range(extra_epochs):
-                    self.reward_train()
-            self._reward_model_memory_ptr = len(self.memory)
+                n_epochs += extra_epochs
+
+            self.log.debug(
+                "running {} reward model training of len {} (batches={})".
+                format(
+                    n_epochs,
+                    len(self.reward_dataloader.dataset),
+                    len(self.reward_dataloader)
+                )
+            )
+            for _ in range(n_epochs):
+                self.reward_train()
+
+            self._reward_model_dataset_memory = []
             self._n_rpn_updates += 1
 
     def _batch_observe_train(
         self, batch_obs, batch_reward, batch_done, batch_reset
     ):
         assert self.training
+        assert self.batch_last_episode is not None
+        assert self.batch_last_state is not None
+        assert self.batch_last_action is not None
+
+        if self._reward_model_batch_last_episode is None:
+            self._reward_model_batch_last_episode = [
+                [] for _ in self.batch_last_episode
+            ]
 
         for i, (state, action, reward, next_state, done, reset) in enumerate(
             zip(
@@ -219,7 +233,7 @@ class Agent(PPO):
                 batch_obs,
                 batch_done,
                 batch_reset
-            )  # type: ignore
+            )
         ):
             if state is not None:
                 assert action is not None
@@ -230,28 +244,85 @@ class Agent(PPO):
                     "next_state": next_state,
                     "nonterminal": 0.0 if done else 1.0,
                 }
-                if self.use_reward_model:
-                    with torch.no_grad():
-                        transition["reward"] = self.reward_model(
-                            torch.from_numpy(
-                                self.phi(np.array(state))
-                            ).unsqueeze(0).to(device=self.device)
-                        ).item()
-                else:
+                if not self.use_reward_model:
                     transition["reward"] = transition["env_reward"]
-                self.batch_last_episode[i].append(transition)  # type: ignore
+                # otherwise, rewards are handled in a batch for efficiency
+
+                self.batch_last_episode[i].append(transition)
+                self._reward_model_batch_last_episode[i].append(transition)
+
+            def move_to_memory(batch_episodes, memory):
+                assert batch_episodes[i]
+                memory.append(batch_episodes[i])
+                batch_episodes[i] = []
+
             if done or reset:
-                assert self.batch_last_episode[i]  # type: ignore
-                self.memory.append(self.batch_last_episode[i])  # type: ignore
-                self.batch_last_episode[i] = []  # type: ignore
-            self.batch_last_state[i] = None  # type: ignore
-            self.batch_last_action[i] = None  # type: ignore
+                move_to_memory(self.batch_last_episode, self.memory)
+                move_to_memory(
+                    self._reward_model_batch_last_episode,
+                    self._reward_model_dataset_memory
+                )
+
+            elif len(
+                self._reward_model_batch_last_episode[i]
+            ) >= self.reward_episode_chopping_interval:
+                move_to_memory(
+                    self._reward_model_batch_last_episode,
+                    self._reward_model_dataset_memory
+                )
+
+            self.batch_last_state[i] = None
+            self.batch_last_action[i] = None
 
         if self.use_reward_model:
             self._add_to_dataloader_if_dataset_is_ready()
         self._update_if_dataset_is_ready()
         if len(self.memory) == 0:
             self._reward_model_memory_ptr = 0
+
+    def _flush_last_episode(self):
+        if self.use_reward_model:
+
+            def all_episodes():
+                if self.last_episode:
+                    yield self.last_episode
+                if self.batch_last_episode:
+                    for episode in self.batch_last_episode:
+                        yield episode
+                for episode in self.memory:
+                    yield episode
+
+            to_update = []
+            for episode in all_episodes():
+                for transition in episode:
+                    if "reward" in transition:
+                        return
+                    to_update.append(transition)
+
+            for batch_start in range(
+                0, len(to_update), self.reward_inference_batch_size
+            ):
+                self._set_batch_rewards(
+                    to_update[batch_start:batch_start +
+                              self.reward_inference_batch_size]
+                )
+
+        super()._flush_last_episode()
+
+    @torch.no_grad()
+    def _set_batch_rewards(self, batch_subset):
+        states = torch.stack(
+            [
+                torch.from_numpy(self.phi(np.array(transition["state"])))
+                for transition in batch_subset
+            ],
+            dim=0,
+        ).to(device=self.device)
+        rewards = self.reward_model(states).cpu()
+        assert len(rewards) == len(batch_subset)
+
+        for transition, reward in zip(batch_subset, rewards):
+            transition["reward"] = reward.item()
 
     def get_extra_statistics(self) -> List[Tuple[str, Any]]:
         if self.use_reward_model:
