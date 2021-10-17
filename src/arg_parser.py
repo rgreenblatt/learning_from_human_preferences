@@ -41,7 +41,7 @@ def make_parser():
     parser.add_argument(
         "--steps",
         type=int,
-        default=10**7,
+        default=5*10**7,
         help="Total time steps for training."
     )
     parser.add_argument(
