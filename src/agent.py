@@ -32,7 +32,7 @@ class Agent(PPO):
         rpn_num_full_prop_updates,
         num_envs,
         log,
-        trajectory_segment_len=25,
+        trajectory_segment_len=32,
         obs_normalizer=None,
         gpu=None,
         gamma=0.99,
