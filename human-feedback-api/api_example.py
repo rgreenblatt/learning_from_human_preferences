@@ -3,7 +3,7 @@ from human_feedback_api import Comparison
 def generate_test():
     # TEST_MEDIA = ['test707470989.png', 'test559628392.png', 'test736369680.png', 'test836374824.png',
     #     'test593516009.png', 'test836986396.png', 'test996736825.png', 'test746178624.png', 'test58579485.png', ]
-    TEST_MEDIA = ['https://storage.googleapis.com/rl-teacher-tom/test_obs_75.mp4'] * 5
+    TEST_MEDIA = ['https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/A_black_image.jpg/800px-A_black_image.jpg'] * 5
 
     for media_1 in TEST_MEDIA:
         for media_2 in TEST_MEDIA:

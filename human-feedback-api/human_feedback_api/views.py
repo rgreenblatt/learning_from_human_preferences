@@ -39,7 +39,7 @@ def _all_comparisons(experiment_name, use_locking=True):
 
     cutoff_time = timezone.now() - timedelta(minutes=2)
     not_in_progress = Q(shown_to_tasker_at__isnull=True) | Q(shown_to_tasker_at__lte=cutoff_time)
-    finished_uploading_media = Q(created_at__lte=datetime.now() - timedelta(seconds=2)) # Give time for upload
+    finished_uploading_media = Q(created_at__lte=timezone.now() - timedelta(seconds=2)) # Give time for upload
     ready = not_responded & not_in_progress & finished_uploading_media
 
     # Sort by priority, then put newest labels first
