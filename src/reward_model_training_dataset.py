@@ -48,43 +48,49 @@ class RewardModelTrainingDataset(Dataset):
         self._size_multiplier = size_multiplier
         self._batch_size = batch_size
 
-        self._samples: List[Tuple[torch.Tensor, torch.Tensor]] = []
+        self._states : List[torch.Tensor] = []
+        self._mus : List[torch.Tensor] = []
+        self._times : List[Tuple[int, int]] = []
         self._probs: List[float] = []
 
-    def add_trajectories(self, states: torch.Tensor, mus: torch.Tensor) -> None:
+    def add_trajectories(self, states: List[torch.Tensor], mus: List[torch.Tensor], times : List[Tuple[int, int]]) -> None:
         """
         Args:
-            states (Tensor): [n x 2 x k x (state dim)]
-            mus (Tensor): [n x 2], relative preferences weights of states
-                                   (probability of picking each state, should
-                                   sum to 1 over the dimension with 2 values)
+            states (List[Tensor]): List of size n, tensor: [2 x k x (state dim)]
+            mus (List[Tensor]): List of size n, tensor: [2],
+                                relative preferences weights of states
+                                (probability of picking each state, should
+                                sum to 1 over the dimension with 2 values)
+            times (List[Tuple[int, int]): List of size n,
+                                          start times of each trajectory
 
         Where n is number of trajectories, k is trajectory length, and the
         state dim is whatever remaining dimensions the state has.
         """
-        assert states.size(0) == mus.size(0)
-        assert states.size(1) == 2
-        assert mus.size(1) == 2
-        assert len(mus.size()) == 2
+        assert len(states) == len(mus)
+        assert len(states) == len(times)
 
-        self._samples.append((states, mus))
+        self._states += states
+        self._mus += mus
+        self._times += times
         self._compute_probs()
 
         if self._probs[0] < self._min_sample_prob:
             del self._samples[0]
             self._compute_probs()
 
-    def _raw_proportional_constant(self, idx: int) -> float:
-        return self._sample_decay**(-idx)
+    def _raw_proportional_constant(self, time: int) -> float:
+        return self._sample_decay**(-time)
 
     def _compute_probs(self):
+        # could use func other than max...
         norm_const = sum(
-            self._raw_proportional_constant(idx)
-            for idx in range(len(self._samples))
+            self._raw_proportional_constant(max(*tms))
+            for tms in self._times
         )
         self._probs = [
-            self._raw_proportional_constant(idx) / norm_const
-            for idx in range(len(self._samples))
+            self._raw_proportional_constant(max(*tms)) / norm_const
+            for tms in self._times
         ]
 
     def current_num_labels(self) -> int:

@@ -2,6 +2,7 @@ import collections
 import itertools
 from typing import Any, List, Tuple
 import random
+from time import sleep
 
 import numpy as np
 from pfrl.utils.batch_states import batch_states
@@ -11,10 +12,11 @@ from pfrl.agents import PPO
 from pfrl.agents.ppo import _mean_or_nan
 
 from reward_model import (
-    compare_via_ground_truth_human_like,
-    compare_via_ground_truth_softmax,
     probability_of_preferring_trajectory,
     sample_trajectory_segments_from_trajectory,
+)
+from comparison_collectors import (
+    SyntheticComparisonCollector, HumanComparisonCollector
 )
 
 
@@ -23,6 +25,7 @@ class Agent(PPO):
         self,
         model,
         optimizer,
+        env,
         reward_dataloader,
         reward_model,
         reward_opt,
@@ -34,6 +37,9 @@ class Agent(PPO):
         reward_inference_batch_size,
         num_envs,
         log,
+        experiment_name,
+        human_labels=False,
+        human_error_rate=0.1,
         trajectory_segment_len=32,
         obs_normalizer=None,
         gpu=None,
@@ -103,7 +109,6 @@ class Agent(PPO):
             self.reward_model.to(self.device)
             self.reward_opt = reward_opt
             self.reward_dataloader = reward_dataloader
-            self._ground_truth_human_like = ground_truth_human_like
             self.reward_update_interval = reward_update_interval
             self.reward_episode_chopping_interval = reward_episode_chopping_interval
 
@@ -112,6 +117,13 @@ class Agent(PPO):
 
             self.rpn_loss_record = collections.deque(maxlen=100)
             self.rpn_prob_record = collections.deque(maxlen=100)
+
+            self._collector = (
+                HumanComparisonCollector(
+                    experiment_name, env, human_error_rate=human_error_rate
+                ) if human_labels else
+                SyntheticComparisonCollector(ground_truth_human_like)
+            )
 
             self._reward_model_memory_ptr = 0
 
@@ -174,20 +186,25 @@ class Agent(PPO):
             self._num_labels += num_additional_labels
 
             # we want to only store segments onto the cpu
-            trajectory_segments, env_rews = sample_trajectory_segments_from_trajectory(
+            # TODO: async approach and uncertainty based sampling
+            trajectory_segments, env_rews, times = sample_trajectory_segments_from_trajectory(
                 self.trajectory_segment_len,
                 num_additional_labels,
                 dataset,
                 lambda x: batch_states(x, torch.device("cpu"), self.phi),
                 lambda x: batch_states(x, torch.device("cpu"), lambda x : x),
             )
+            human_obs = None # TODO
+            self._collector.add_values(trajectory_segments, env_rews, times, human_obs)
 
-            if self._ground_truth_human_like:
-                mus = compare_via_ground_truth_human_like(env_rews)
-            else:
-                mus = compare_via_ground_truth_softmax(env_rews)
+            while len(self._collector) < self._collector.n_labeled_comparisons():
+                print("waiting for labels!")
+                sleep(5)
+
+            trajectories, mus, times = self._collector.pop_labeled()
+
             self.reward_dataloader.dataset.add_trajectories(
-                trajectory_segments, mus
+                trajectories, mus, times,
             )
             n_epochs = round(dataset_size / self.reward_update_interval)
             if self._n_rpn_updates == self._rpn_num_full_prop_updates - 1:
@@ -249,12 +266,16 @@ class Agent(PPO):
                 # otherwise, rewards are handled in a batch for efficiency
 
                 self.batch_last_episode[i].append(transition)
-                self._reward_model_batch_last_episode[i].append(transition)
+                self._reward_model_batch_last_episode[i].append(
+                    (transition, self.t)
+                )
 
             def move_to_memory(batch_episodes, memory):
                 assert batch_episodes[i]
                 memory.append(batch_episodes[i])
                 batch_episodes[i] = []
+
+            print("T:", self.t)
 
             if done or reset:
                 move_to_memory(self.batch_last_episode, self.memory)

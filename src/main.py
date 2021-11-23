@@ -106,9 +106,12 @@ def main():
 
     logger = get_logger(args.log_level, "ppo_with_rpn")
 
+    env = make_batch_env(False)
+
     agent = Agent(
         model,
         opt,
+        env,
         reward_model=reward_model,
         reward_opt=reward_opt,
         reward_update_interval=args.reward_update_interval,
@@ -118,6 +121,9 @@ def main():
         rpn_num_full_prop_updates=args.rpn_num_full_prop_updates,
         reward_inference_batch_size=args.rpn_inference_batchsize,
         log=logger,
+        experiment_name=args.exp_id,
+        human_labels=False, # TODO
+        human_error_rate=0.1,
         num_envs=args.num_envs,
         reward_dataloader=reward_dataloader,
         gpu=args.gpu,
@@ -186,7 +192,7 @@ def main():
 
         experiments.train_agent_batch_with_evaluation(
             agent=agent,
-            env=make_batch_env(False),
+            env=env,
             eval_env=make_batch_env(True),
             outdir=args.outdir,
             steps=args.steps,
