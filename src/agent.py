@@ -215,7 +215,7 @@ class Agent(PPO):
             )
             n_epochs = round(dataset_size / self.reward_update_interval)
             if self._n_rpn_updates == self._rpn_num_full_prop_updates - 1:
-                extra_epochs = 50
+                extra_epochs = 15
                 self.log.info(
                     f"running {extra_epochs} extra reward model training epochs with"
                     " initial data"
