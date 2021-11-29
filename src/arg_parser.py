@@ -195,7 +195,7 @@ def make_parser():
     parser.add_argument(
         "--reward-model-sample-decay",
         type=float,
-        default=0.98,
+        default=1.0, # default to keeping everything
         help="decay per group of reward model samples",
     )
     parser.add_argument(
@@ -215,7 +215,7 @@ def make_parser():
     parser.add_argument(
         "--min-sample-prob",
         type=float,
-        default=5e-3,
+        default=0.0, # default to keeping everything
         help="minimum sample probability for reward dataset",
     )
     parser.add_argument(
