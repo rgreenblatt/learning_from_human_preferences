@@ -35,7 +35,7 @@ class RewardModelTrainingDataset(Dataset):
     ) -> None:
         super().__init__()
 
-        assert 0. < sample_decay < 1.
+        assert 0. < sample_decay <= 1.
         assert 0. <= min_sample_prob < 1.
         assert size_multiplier > 0.
         assert batch_size is None or batch_size > 0

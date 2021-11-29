@@ -194,17 +194,24 @@ class Agent(PPO):
                 lambda x: batch_states(x, torch.device("cpu"), self.phi),
                 lambda x: batch_states(x, torch.device("cpu"), lambda x : x),
             )
-            human_obs = None # TODO
-            self._collector.add_values(trajectory_segments, env_rews, times, human_obs)
+            human_obs = None  # TODO
+            self._collector.add_values(
+                trajectory_segments, env_rews, times, human_obs
+            )
 
-            while len(self._collector) < self._collector.n_labeled_comparisons():
-                print("waiting for labels!")
+            n_labeled = self._collector.n_labeled_comparisons()
+
+            # TODO: This should go away with async approach
+            while len(self._collector) < n_labeled:
+                print(f"waiting for {n_labeled - len(self._collector)} labels")
                 sleep(5)
 
             trajectories, mus, times = self._collector.pop_labeled()
 
             self.reward_dataloader.dataset.add_trajectories(
-                trajectories, mus, times,
+                trajectories,
+                mus,
+                times,
             )
             n_epochs = round(dataset_size / self.reward_update_interval)
             if self._n_rpn_updates == self._rpn_num_full_prop_updates - 1:
@@ -274,8 +281,6 @@ class Agent(PPO):
                 assert batch_episodes[i]
                 memory.append(batch_episodes[i])
                 batch_episodes[i] = []
-
-            print("T:", self.t)
 
             if done or reset:
                 move_to_memory(self.batch_last_episode, self.memory)
