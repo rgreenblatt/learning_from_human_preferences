@@ -199,6 +199,11 @@ def make_parser():
         help="decay per group of reward model samples",
     )
     parser.add_argument(
+        "--human-labels",
+        action="store_true",
+        default=False,
+    )
+    parser.add_argument(
         "--rpn-ground-truth-human-like",
         action="store_true",
         dest="rpn_ground_truth_human_like",

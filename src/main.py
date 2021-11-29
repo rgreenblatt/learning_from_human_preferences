@@ -12,6 +12,7 @@ from arg_parser import make_parser
 from reward_model_training_dataset import RewardModelTrainingDataset
 from utils import PrintAndLogStdoutStderr, get_logger
 from agent import Agent
+from envs import make_with_torque_removed
 
 
 def main():
@@ -40,13 +41,25 @@ def main():
         # Use different random seeds for train and test envs
         process_seed = int(process_seeds[idx])
         env_seed = 2**32 - 1 - process_seed if test else process_seed
-        env = atari_wrappers.wrap_deepmind(
-            atari_wrappers.make_atari(args.env, max_frames=args.max_frames),
-            episode_life=not test,
-            clip_rewards=not test,
-            flicker=False,
-            frame_stack=False,
-        )
+        env = make_with_torque_removed(args.env)
+        is_atari = env is None # otherwise is atari
+
+        # right now only support human labels for mujoco 
+        # due to https://stackoverflow.com/questions/62334284/how-to-restore-previous-state-to-gym-environment
+        # and also generally applying a lazy approach to code drafting
+        assert not (is_atari and args.human_labels)
+
+        if is_atari:
+            env = atari_wrappers.wrap_deepmind(
+                atari_wrappers.make_atari(args.env, max_frames=args.max_frames),
+                episode_life=not test,
+                clip_rewards=not test,
+                flicker=False,
+                frame_stack=False,
+            )
+
+        assert env is not None
+
         env.seed(env_seed)
         if args.monitor:
             env = pfrl.wrappers.Monitor(

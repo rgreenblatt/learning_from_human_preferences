@@ -237,7 +237,7 @@ class Agent(PPO):
             self._n_rpn_updates += 1
 
     def _batch_observe_train(
-        self, batch_obs, batch_reward, batch_done, batch_reset
+        self, batch_obs, batch_reward, batch_done, batch_reset, infos
     ):
         assert self.training
         assert self.batch_last_episode is not None
@@ -249,14 +249,15 @@ class Agent(PPO):
                 [] for _ in self.batch_last_episode
             ]
 
-        for i, (state, action, reward, next_state, done, reset) in enumerate(
+        for i, (state, action, reward, next_state, done, reset, info) in enumerate(
             zip(
                 self.batch_last_state,
                 self.batch_last_action,
                 batch_reward,
                 batch_obs,
                 batch_done,
-                batch_reset
+                batch_reset,
+                infos,
             )
         ):
             if state is not None:
